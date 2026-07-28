@@ -1,0 +1,1 @@
+"""NovaShop backend package."""
