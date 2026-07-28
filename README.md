@@ -8,6 +8,18 @@ Unlike tutorial repositories that mainly focus on application development, **Nov
 
 ---
 
+## 🚧 Build in Public
+
+NovaShop is being developed completely in public.
+
+Every architectural decision, infrastructure change, deployment strategy, CI/CD pipeline, production operation, and engineering document is intentionally committed into Git history.
+
+The goal is not only to build a production-grade cloud-native platform, but also to demonstrate the engineering thought process behind every decision.
+
+This repository is designed as a long-term engineering portfolio rather than a simple demo application.
+
+---
+
 # 🎯 Project Objectives
 
 NovaShop is designed to demonstrate practical experience in:
@@ -238,6 +250,83 @@ Documentation is considered part of the product.
 
 ---
 
+# 📊 Current Progress
+
+| Item | Status |
+|------|--------|
+| Repository Foundation | ✅ Completed |
+| Repository Governance | ✅ Completed |
+| Documentation | 🚧 In Progress |
+| Application Development | ⏳ Planned |
+| Infrastructure | ⏳ Planned |
+| Kubernetes | ⏳ Planned |
+| GitOps | ⏳ Planned |
+| Observability | ⏳ Planned |
+| DevSecOps | ⏳ Planned |
+| Production | ⏳ Planned |
+
+Current Phase
+
+```
+Sprint 0
+Repository Foundation
+```
+
+---
+
+# 🎯 Current Focus
+
+Current Sprint
+
+```
+Sprint 0
+Repository Foundation
+```
+
+Current Objectives
+
+- Build repository foundation
+- Define engineering standards
+- Prepare documentation
+- Establish repository governance
+- Create project roadmap
+
+---
+
+# 📈 Engineering Metrics
+
+| Metric | Current |
+|---------|---------|
+| ADRs | 0 |
+| Runbooks | 0 |
+| Architecture Documents | 0 |
+| CI Pipelines | 0 |
+| Helm Charts | 0 |
+| Terraform Modules | 0 |
+| Kubernetes Manifests | 0 |
+| Production Releases | 0 |
+
+These metrics will evolve throughout the project lifecycle.
+
+---
+
+# 📚 Learning Journey
+
+Every sprint follows the same engineering workflow:
+
+- Requirement Analysis
+- Architecture Design
+- AI-assisted Implementation
+- Technical Review
+- Validation
+- Documentation
+- Lessons Learned
+- Retrospective
+
+The objective is to document not only *what* was built, but also *why* it was built that way.
+
+---
+
 # 🗺 Roadmap
 
 ## Phase 0
@@ -346,3 +435,19 @@ The project intentionally prioritizes:
 over rapid feature development.
 
 Every major milestone will be documented, reviewed, and released using GitHub Releases.
+
+---
+
+# ⭐ Project Philosophy
+
+NovaShop follows one simple philosophy:
+
+> Build like a real engineering team.
+
+Every technology, tool, and engineering decision included in this repository must satisfy three conditions:
+
+- Solve a real engineering problem.
+- Be explainable during a technical interview.
+- Be maintainable in a production environment.
+
+The project values engineering quality over implementation speed.

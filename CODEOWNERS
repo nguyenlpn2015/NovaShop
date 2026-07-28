@@ -1,0 +1,18 @@
+# Default owner for all repository content.
+* @nguyenlpn2015
+
+# Governance and community health.
+/CODEOWNERS @nguyenlpn2015
+/.github/ @nguyenlpn2015
+/docs/ @nguyenlpn2015
+/LICENSE @nguyenlpn2015
+/CONTRIBUTING.md @nguyenlpn2015
+/CODE_OF_CONDUCT.md @nguyenlpn2015
+/SECURITY.md @nguyenlpn2015
+
+# Architecture, delivery, and operations.
+/architecture/ @nguyenlpn2015
+/adr/ @nguyenlpn2015
+/diagrams/ @nguyenlpn2015
+/runbooks/ @nguyenlpn2015
+/scripts/ @nguyenlpn2015
