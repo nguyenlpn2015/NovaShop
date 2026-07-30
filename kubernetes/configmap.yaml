@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: novashop-config
+  namespace: novashop
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop
+    app.kubernetes.io/part-of: novashop
+    app.kubernetes.io/managed-by: kubectl
+data:
+  APP_NAME: "NovaShop API"
+  APP_VERSION: "0.1.0"
+  ENVIRONMENT: "production"
+  NEXT_PUBLIC_API_URL: "https://api.novashop.local"
