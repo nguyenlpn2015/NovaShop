@@ -20,6 +20,36 @@ This repository is designed as a long-term engineering portfolio rather than a s
 
 ---
 
+# ⚡ Quick Start
+
+Prepare a Linux host with k3s 1.33+, clone both repositories, and bootstrap the
+runtime:
+
+```bash
+git clone https://github.com/nguyenlpn2015/NovaShop.git
+git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git
+cd NovaShop
+
+read -rsp 'PostgreSQL URL: ' DATABASE_URL && echo
+read -rsp 'Redis URL: ' REDIS_URL && echo
+export DATABASE_URL REDIS_URL
+
+bash scripts/bootstrap.sh
+unset DATABASE_URL REDIS_URL
+```
+
+Open the Argo CD UI:
+
+```bash
+bash scripts/port-forward.sh
+```
+
+Use the [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) for clean-cluster setup,
+tool installation, first login, password rotation, ingress access, and complete
+verification.
+
+---
+
 # 🎯 Project Objectives
 
 NovaShop is designed to demonstrate practical experience in:
@@ -115,6 +145,29 @@ Cosign
 
 ---
 
+# 🚢 Deployment Architecture
+
+```text
+Developer
+  -> GitHub
+  -> GitHub Actions
+  -> GHCR
+  -> NovaShop-GitOps
+  -> Argo CD
+  -> k3s
+  -> Traefik
+  -> NovaShop
+  -> Browser
+```
+
+The application repository builds immutable artifacts. The GitOps repository
+selects the artifact revisions. Argo CD is the only application deployment
+controller for the cluster.
+
+See the [GitOps Runtime Diagram](diagrams/GITOPS_RUNTIME.md).
+
+---
+
 # 🛠 Technology Stack
 
 ## Application Layer
@@ -170,6 +223,61 @@ Cosign
 
 ---
 
+# 🔄 GitOps Delivery
+
+NovaShop uses Argo CD with a separate deployment repository:
+
+- `NovaShop` owns source code, CI, Dockerfiles, and the reusable Helm chart.
+- `NovaShop-GitOps` owns environment values and the desired deployment state.
+- Argo CD watches only `NovaShop-GitOps` for desired-state changes.
+- Helm chart and container image revisions are immutable and promoted through
+  reviewed GitOps pull requests.
+
+This separation keeps build permissions away from the cluster, provides a
+clear deployment audit trail, and makes Git the authoritative source of
+runtime state.
+
+Deployment workflow:
+
+```text
+NovaShop change
+  -> CI validation
+  -> GHCR images tagged with Git SHA
+  -> NovaShop-GitOps pull request
+  -> reviewed merge
+  -> Argo CD automatic sync
+  -> Kubernetes health assessment
+```
+
+Argo CD continuously reconciles the desired state, self-heals drift, and
+prunes resources removed from Git. Rollback is performed by reverting the
+GitOps commit or restoring the previous immutable image SHA; emergency Argo CD
+rollbacks must be followed by an equivalent Git commit.
+
+See [GitOps Architecture](docs/GITOPS_ARCHITECTURE.md) for repository strategy,
+synchronization, promotion, rollback, and future CI integration.
+
+---
+
+# ⚙ GitOps Runtime
+
+The runtime layer is intentionally small:
+
+| Component | Responsibility |
+|-----------|----------------|
+| `scripts/install-argocd.sh` | Install pinned official Argo CD manifests and CLI |
+| `scripts/bootstrap.sh` | Reconcile Argo CD bootstrap resources and runtime Secrets |
+| `scripts/port-forward.sh` | Provide local-only Argo CD UI and API access |
+| `scripts/cleanup.sh` | Remove the local runtime with explicit confirmation |
+| `docs/OPERATIONS.md` | Deploy, update, rollback, restart, scale, recover, and troubleshoot |
+| `docs/VERIFICATION_CHECKLIST.md` | Verify cluster, Argo CD, workloads, ingress, Helm render, and GHCR images |
+
+Automatic sync, self-heal, prune, retry, and revision history are declared in
+the Argo CD resources. Application delivery is performed from
+`NovaShop-GitOps`; the runtime scripts do not bypass GitOps.
+
+---
+
 # 📂 Repository Structure
 
 ```
@@ -198,6 +306,9 @@ NovaShop/
 
 ├── helm/
 │   └── Helm Charts
+
+├── argocd/
+│   └── One-time GitOps bootstrap manifests
 
 ├── monitoring/
 │   └── Observability Stack
@@ -257,10 +368,11 @@ Documentation is considered part of the product.
 | Repository Foundation | ✅ Completed |
 | Repository Governance | ✅ Completed |
 | Documentation | 🚧 In Progress |
-| Application Development | ⏳ Planned |
+| Application Foundation | ✅ Completed |
+| Continuous Integration | ✅ Completed |
 | Infrastructure | ⏳ Planned |
-| Kubernetes | ⏳ Planned |
-| GitOps | ⏳ Planned |
+| Kubernetes | ✅ Completed |
+| GitOps | ✅ Completed |
 | Observability | ⏳ Planned |
 | DevSecOps | ⏳ Planned |
 | Production | ⏳ Planned |
@@ -268,8 +380,8 @@ Documentation is considered part of the product.
 Current Phase
 
 ```
-Sprint 0
-Repository Foundation
+Sprint 4
+GitOps Foundation
 ```
 
 ---
@@ -279,17 +391,17 @@ Repository Foundation
 Current Sprint
 
 ```
-Sprint 0
-Repository Foundation
+Sprint 4
+GitOps Foundation
 ```
 
 Current Objectives
 
-- Build repository foundation
-- Define engineering standards
-- Prepare documentation
-- Establish repository governance
-- Create project roadmap
+- Separate application and deployment responsibilities
+- Establish Argo CD bootstrap resources
+- Define environment-specific desired state
+- Document synchronization, promotion, and rollback
+- Prepare CI-driven GitOps pull requests
 
 ---
 
@@ -299,11 +411,11 @@ Current Objectives
 |---------|---------|
 | ADRs | 0 |
 | Runbooks | 0 |
-| Architecture Documents | 0 |
-| CI Pipelines | 0 |
-| Helm Charts | 0 |
+| Architecture Documents | 1 |
+| CI Pipelines | 2 |
+| Helm Charts | 1 |
 | Terraform Modules | 0 |
-| Kubernetes Manifests | 0 |
+| Kubernetes Manifests | 8 |
 | Production Releases | 0 |
 
 These metrics will evolve throughout the project lifecycle.
@@ -388,14 +500,14 @@ Portfolio Release v1.0
 Current Phase
 
 ```
-Phase 0
-Repository Foundation
+Phase 7
+GitOps
 ```
 
 Current Status
 
 ```
-🚧 In Progress
+✅ Foundation Completed
 ```
 
 ---

@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: novashop
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: gitops
+    app.kubernetes.io/part-of: novashop
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: NovaShop application delivery across all managed environments
+  sourceRepos:
+    - https://github.com/nguyenlpn2015/NovaShop.git
+    - https://github.com/nguyenlpn2015/NovaShop-GitOps.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: novashop-development
+    - server: https://kubernetes.default.svc
+      namespace: novashop-staging
+    - server: https://kubernetes.default.svc
+      namespace: novashop-production
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: argoproj.io
+      kind: ApplicationSet
+    - group: apps
+      kind: Deployment
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Service
+    - group: networking.k8s.io
+      kind: Ingress
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ""
+        kind: Secret
+        name: novashop-*-secrets
+      - group: ""
+        kind: Secret
+        name: novashop-*-tls
