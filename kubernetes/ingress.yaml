@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: novashop
+  namespace: novashop
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: novashop
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: novashop.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-frontend
+                port:
+                  name: http
+    - host: api.novashop.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-backend
+                port:
+                  name: http
+  # Configure the websecure entrypoint and a certificate Secret in production.

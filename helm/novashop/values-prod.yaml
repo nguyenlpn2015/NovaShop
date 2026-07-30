@@ -1,0 +1,39 @@
+config:
+  environment: production
+  nextPublicApiUrl: https://api.novashop.example.com
+
+backend:
+  replicaCount: 3
+  image:
+    # Set an immutable digest from the release pipeline.
+    digest: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+frontend:
+  replicaCount: 3
+  image:
+    # Set an immutable digest from the release pipeline.
+    digest: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+ingress:
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  frontendHost: novashop.example.com
+  backendHost: api.novashop.example.com
+  tls:
+    enabled: true
+    secretName: novashop-tls

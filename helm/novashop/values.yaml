@@ -1,0 +1,126 @@
+namespace:
+  create: true
+  name: novashop
+
+commonLabels: {}
+
+config:
+  appName: NovaShop API
+  appVersion: "0.1.0"
+  environment: production
+  nextPublicApiUrl: https://api.novashop.local
+
+# The Secret must be created out-of-band by a secrets manager or CI/CD.
+secrets:
+  existingSecret: novashop-secrets
+
+backend:
+  replicaCount: 2
+  revisionHistoryLimit: 5
+  image:
+    repository: ghcr.io/nguyenlpn2015/novashop-backend
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  strategy:
+    maxSurge: 1
+    maxUnavailable: 0
+  probes:
+    liveness:
+      # TODO: Change to /live when the dedicated endpoint is available.
+      path: /health
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      # TODO: Change to /ready when dependency-aware readiness is available.
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+frontend:
+  replicaCount: 2
+  revisionHistoryLimit: 5
+  image:
+    repository: ghcr.io/nguyenlpn2015/novashop-frontend
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  strategy:
+    maxSurge: 1
+    maxUnavailable: 0
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  frontendHost: novashop.local
+  backendHost: api.novashop.local
+  tls:
+    enabled: false
+    secretName: novashop-tls
