@@ -22,19 +22,43 @@ This repository is designed as a long-term engineering portfolio rather than a s
 
 # ⚡ Quick Start
 
-Prepare a Linux host with k3s 1.33+, clone both repositories, and bootstrap the
-runtime:
+Clone the application and deployment repositories as siblings:
 
-```bash
+```text
 git clone https://github.com/nguyenlpn2015/NovaShop.git
 git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git
 cd NovaShop
+```
 
-read -rsp 'PostgreSQL URL: ' DATABASE_URL && echo
-read -rsp 'Redis URL: ' REDIS_URL && echo
+## Deployment Target A: Docker Desktop Kubernetes
+
+Use Target A on a Windows 11 developer workstation:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\verify-docker-desktop.ps1
+.\scripts\install-argocd.ps1
+.\scripts\bootstrap-docker-desktop.ps1
+```
+
+Open the Argo CD UI:
+
+```powershell
+.\scripts\port-forward-argocd.ps1
+```
+
+## Deployment Target B: Ubuntu Server and k3s
+
+Use Target B on the Ubuntu Server 22.04 platform lab:
+
+```bash
+read -rsp 'PostgreSQL URL: ' DATABASE_URL
+printf '\n'
+read -rsp 'Redis URL: ' REDIS_URL
+printf '\n'
 export DATABASE_URL REDIS_URL
 
-bash scripts/bootstrap.sh
+bash scripts/linux/bootstrap.sh
 unset DATABASE_URL REDIS_URL
 ```
 
@@ -44,9 +68,42 @@ Open the Argo CD UI:
 bash scripts/port-forward.sh
 ```
 
-Use the [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) for clean-cluster setup,
-tool installation, first login, password rotation, ingress access, and complete
-verification.
+# 🌐 Supported Deployment Targets
+
+NovaShop supports two deployment targets without changing the Helm chart,
+GitOps repository, Argo CD resources, GitHub Actions workflows, or GHCR image
+contract.
+
+| Target | Platform | Purpose | Use when |
+|--------|----------|---------|----------|
+| Target A | Windows 11 + Docker Desktop Kubernetes | Developer workstation | Developing locally, testing changes quickly, and validating the GitOps flow on a laptop |
+| Target B | Ubuntu Server 22.04 + single-node k3s | Production-like Platform Lab | Practicing persistent Linux operations, networking, backups, upgrades, and VPS-style platform administration |
+
+## Target A: Docker Desktop Kubernetes
+
+Target A is the default path for local development, fast feedback, and
+workstation-level GitOps validation.
+
+## Target B: Ubuntu Server and k3s
+
+Target B provisions a persistent Linux platform at `10.10.1.45` for
+systemd-based operations, networking, upgrades, backup, and recovery practice.
+
+## Detailed Documentation
+
+- Target A:
+  [deployment](docs/DOCKER_DESKTOP_DEPLOYMENT.md),
+  [validation](docs/DOCKER_DESKTOP_VALIDATION.md), and
+  [troubleshooting](docs/DOCKER_DESKTOP_TROUBLESHOOTING.md).
+- Target B:
+  [deployment](docs/deployment/ubuntu-k3s.md),
+  [bootstrap sequence](docs/deployment/bootstrap-sequence.md),
+  [validation](docs/deployment/validation.md), and
+  [operations](docs/deployment/operations.md).
+- Shared:
+  [GitOps architecture](docs/GITOPS_ARCHITECTURE.md),
+  [runtime diagram](diagrams/GITOPS_RUNTIME.md), and
+  [deployment target comparison](diagrams/DEPLOYMENT_TARGETS.md).
 
 ---
 
@@ -154,10 +211,8 @@ Developer
   -> GHCR
   -> NovaShop-GitOps
   -> Argo CD
-  -> k3s
-  -> Traefik
-  -> NovaShop
-  -> Browser
+       |-> Target A: Docker Desktop Kubernetes -> Traefik -> NovaShop
+       `-> Target B: Ubuntu + k3s              -> Traefik -> NovaShop
 ```
 
 The application repository builds immutable artifacts. The GitOps repository
@@ -265,10 +320,11 @@ The runtime layer is intentionally small:
 
 | Component | Responsibility |
 |-----------|----------------|
-| `scripts/install-argocd.sh` | Install pinned official Argo CD manifests and CLI |
-| `scripts/bootstrap.sh` | Reconcile Argo CD bootstrap resources and runtime Secrets |
-| `scripts/port-forward.sh` | Provide local-only Argo CD UI and API access |
-| `scripts/cleanup.sh` | Remove the local runtime with explicit confirmation |
+| `scripts/*.ps1` | Operate Target A from a Windows developer workstation |
+| `scripts/linux/*.sh` | Provision, verify, and operate Target B on Ubuntu and k3s |
+| `scripts/*.sh` | Provide shared Linux GitOps installation and runtime primitives |
+| `docs/DOCKER_DESKTOP_VALIDATION.md` | Validate Target A end to end |
+| `docs/deployment/validation.md` | Validate Target B end to end |
 | `docs/OPERATIONS.md` | Deploy, update, rollback, restart, scale, recover, and troubleshoot |
 | `docs/VERIFICATION_CHECKLIST.md` | Verify cluster, Argo CD, workloads, ingress, Helm render, and GHCR images |
 
