@@ -2,13 +2,16 @@
 
 | Script | Purpose |
 |--------|---------|
-| `install-argocd.sh` | Install pinned Argo CD server manifests and verified CLI |
-| `bootstrap.sh` | Bootstrap the root GitOps application and runtime Secrets |
-| `port-forward.sh` | Open local access to the Argo CD API and UI |
-| `cleanup.sh` | Remove NovaShop runtime resources with explicit confirmation |
+| `verify-docker-desktop.ps1` | Verify tools, context, cluster, and Kubernetes version |
+| `install-argocd.ps1` | Install pinned official Argo CD manifests and verified Windows CLI |
+| `bootstrap-docker-desktop.ps1` | Install Traefik and reconcile the complete GitOps runtime |
+| `port-forward-argocd.ps1` | Open local access to the Argo CD UI and API |
+| `configure-local-hosts.ps1` | Add idempotent NovaShop entries to the Windows hosts file |
+| `cleanup-docker-desktop.ps1` | Remove runtime resources with explicit confirmation |
 
-Run scripts from the NovaShop repository root with Bash.
+Run the PowerShell scripts from the NovaShop repository root:
 
-`bootstrap.sh` preserves existing runtime Secrets. Missing Secrets are created
-from environment-specific `*_DATABASE_URL` and `*_REDIS_URL` variables, or
-from the shared `DATABASE_URL` and `REDIS_URL` fallback for local clusters.
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\verify-docker-desktop.ps1
+```

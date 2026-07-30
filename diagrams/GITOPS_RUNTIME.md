@@ -8,7 +8,7 @@ flowchart TD
     ghcr[GitHub Container Registry]
     gitops[GitHub<br/>NovaShop-GitOps]
     argocd[Argo CD]
-    k3s[k3s]
+    kubernetes[Docker Desktop<br/>Kubernetes]
     traefik[Traefik]
     novashop[NovaShop<br/>Frontend and Backend]
     browser[Browser]
@@ -19,9 +19,9 @@ flowchart TD
     actions -.->|Future deployment PR| gitops
     developer -->|Reviewed desired state| gitops
     gitops -->|Reconcile| argocd
-    argocd -->|Render pinned Helm chart| k3s
-    ghcr -->|Pull images| k3s
-    k3s --> traefik
+    argocd -->|Render pinned Helm chart| kubernetes
+    ghcr -->|Pull images| kubernetes
+    kubernetes --> traefik
     traefik --> novashop
     novashop --> browser
 ```
