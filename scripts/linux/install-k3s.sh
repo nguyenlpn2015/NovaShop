@@ -58,6 +58,18 @@ configure_kubeconfig() {
   log "User kubeconfig is ready at ${KUBECONFIG_PATH}."
 }
 
+wait_for_node_registration() {
+  local deadline=$((SECONDS + 300))
+
+  log 'Waiting for the k3s node to register.'
+  while ! KUBECONFIG="${KUBECONFIG_PATH}" \
+    kubectl get nodes --no-headers 2>/dev/null | grep -q .; do
+    (( SECONDS < deadline )) \
+      || die 'Timed out waiting for the k3s node to register.'
+    sleep 2
+  done
+}
+
 install_k3s() {
   local current_version=""
   local installer
@@ -95,6 +107,7 @@ main() {
   require_command grep
   require_command ip
   require_command mktemp
+  require_command sleep
   require_command sudo
   require_command systemctl
 
@@ -110,6 +123,7 @@ main() {
     || die 'k3s service is not active.'
   configure_kubeconfig
 
+  wait_for_node_registration
   KUBECONFIG="${KUBECONFIG_PATH}" kubectl wait \
     --for=condition=Ready \
     node \
