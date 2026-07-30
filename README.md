@@ -22,14 +22,19 @@ This repository is designed as a long-term engineering portfolio rather than a s
 
 # ⚡ Quick Start
 
-Start Docker Desktop Kubernetes on Windows 11, clone both repositories, and
-run the PowerShell preflight:
+Clone the application and deployment repositories as siblings:
 
-```powershell
+```text
 git clone https://github.com/nguyenlpn2015/NovaShop.git
 git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git
 cd NovaShop
+```
 
+## Deployment Target A: Docker Desktop Kubernetes
+
+Use Target A on a Windows 11 developer workstation:
+
+```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\verify-docker-desktop.ps1
 .\scripts\install-argocd.ps1
@@ -42,12 +47,26 @@ Open the Argo CD UI:
 .\scripts\port-forward-argocd.ps1
 ```
 
-Use the
-[Docker Desktop Deployment Guide](docs/DOCKER_DESKTOP_DEPLOYMENT.md) for
-repository registration, first login, password rotation, ingress access, and
-complete verification.
+## Deployment Target B: Ubuntu Server and k3s
 
----
+Use Target B on the Ubuntu Server 22.04 platform lab:
+
+```bash
+read -rsp 'PostgreSQL URL: ' DATABASE_URL
+printf '\n'
+read -rsp 'Redis URL: ' REDIS_URL
+printf '\n'
+export DATABASE_URL REDIS_URL
+
+bash scripts/linux/bootstrap.sh
+unset DATABASE_URL REDIS_URL
+```
+
+Open the Argo CD UI:
+
+```bash
+bash scripts/port-forward.sh
+```
 
 # 🌐 Supported Deployment Targets
 
@@ -62,31 +81,29 @@ contract.
 
 ## Target A: Docker Desktop Kubernetes
 
-Target A remains the default local-development path. Use the
-[Docker Desktop Deployment Guide](docs/DOCKER_DESKTOP_DEPLOYMENT.md) and the
-existing PowerShell automation under `scripts/`.
+Target A is the default path for local development, fast feedback, and
+workstation-level GitOps validation.
 
 ## Target B: Ubuntu Server and k3s
 
-Target B provisions a persistent Linux platform at `10.10.1.45` with pinned
-k3s, Helm, bundled Traefik, Argo CD, and the same GitOps applications:
+Target B provisions a persistent Linux platform at `10.10.1.45` for
+systemd-based operations, networking, upgrades, backup, and recovery practice.
 
-```bash
-export NODE_IP='10.10.1.45'
-read -rsp 'PostgreSQL URL: ' DATABASE_URL
-printf '\n'
-read -rsp 'Redis URL: ' REDIS_URL
-printf '\n'
-export DATABASE_URL REDIS_URL
+## Detailed Documentation
 
-bash scripts/linux/bootstrap.sh
-unset DATABASE_URL REDIS_URL
-```
-
-Start with the [Ubuntu and k3s Deployment Guide](docs/deployment/ubuntu-k3s.md)
-and the [Bootstrap Sequence](docs/deployment/bootstrap-sequence.md). The shared
-boundaries are illustrated in
-[Deployment Targets](diagrams/DEPLOYMENT_TARGETS.md).
+- Target A:
+  [deployment](docs/DOCKER_DESKTOP_DEPLOYMENT.md),
+  [validation](docs/DOCKER_DESKTOP_VALIDATION.md), and
+  [troubleshooting](docs/DOCKER_DESKTOP_TROUBLESHOOTING.md).
+- Target B:
+  [deployment](docs/deployment/ubuntu-k3s.md),
+  [bootstrap sequence](docs/deployment/bootstrap-sequence.md),
+  [validation](docs/deployment/validation.md), and
+  [operations](docs/deployment/operations.md).
+- Shared:
+  [GitOps architecture](docs/GITOPS_ARCHITECTURE.md),
+  [runtime diagram](diagrams/GITOPS_RUNTIME.md), and
+  [deployment target comparison](diagrams/DEPLOYMENT_TARGETS.md).
 
 ---
 
@@ -194,10 +211,8 @@ Developer
   -> GHCR
   -> NovaShop-GitOps
   -> Argo CD
-  -> Docker Desktop Kubernetes
-  -> Traefik
-  -> NovaShop
-  -> Browser
+       |-> Target A: Docker Desktop Kubernetes -> Traefik -> NovaShop
+       `-> Target B: Ubuntu + k3s              -> Traefik -> NovaShop
 ```
 
 The application repository builds immutable artifacts. The GitOps repository
@@ -305,12 +320,13 @@ The runtime layer is intentionally small:
 
 | Component | Responsibility |
 |-----------|----------------|
-| `scripts/verify-docker-desktop.ps1` | Verify the Windows local-cluster boundary |
-| `scripts/install-argocd.ps1` | Install pinned official Argo CD manifests and CLI |
-| `scripts/bootstrap-docker-desktop.ps1` | Reconcile Traefik, Argo CD, applications, and runtime Secrets |
-| `scripts/port-forward-argocd.ps1` | Provide local-only Argo CD UI and API access |
-| `docs/DOCKER_DESKTOP_VALIDATION.md` | Verify cluster, Argo CD, workloads, ingress, Helm, and GHCR images |
-| `docs/PORTFOLIO_EVIDENCE.md` | Capture reproducible recruiter-facing deployment evidence |
+| `scripts/*.ps1` | Operate Target A from a Windows developer workstation |
+| `scripts/linux/*.sh` | Provision, verify, and operate Target B on Ubuntu and k3s |
+| `scripts/*.sh` | Provide shared Linux GitOps installation and runtime primitives |
+| `docs/DOCKER_DESKTOP_VALIDATION.md` | Validate Target A end to end |
+| `docs/deployment/validation.md` | Validate Target B end to end |
+| `docs/OPERATIONS.md` | Deploy, update, rollback, restart, scale, recover, and troubleshoot |
+| `docs/VERIFICATION_CHECKLIST.md` | Verify cluster, Argo CD, workloads, ingress, Helm render, and GHCR images |
 
 Automatic sync, self-heal, prune, retry, and revision history are declared in
 the Argo CD resources. Application delivery is performed from
