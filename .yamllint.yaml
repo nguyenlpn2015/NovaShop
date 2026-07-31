@@ -1,0 +1,47 @@
+---
+# Lint policy for every hand-written YAML document in this repository and in
+# NovaShop-GitOps. Helm templates are excluded because Go template actions are
+# not valid YAML before rendering; they are validated by `helm template`.
+extends: default
+
+yaml-files:
+  - "*.yaml"
+  - "*.yml"
+
+ignore: |
+  frontend/node_modules/
+  helm/novashop/templates/
+
+rules:
+  # Traefik middleware references and Compose connection strings exceed the
+  # 80-column default and cannot be folded without changing their value.
+  line-length:
+    max: 140
+    level: error
+
+  # Kubernetes manifests intentionally use multi-document streams without a
+  # leading marker on the first document.
+  document-start: disable
+
+  # GitHub Actions requires the `on` key, which the truthy rule would reject.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+
+  # `compress: {}` is the documented Traefik middleware form.
+  braces:
+    forbid: false
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+
+  comments:
+    min-spaces-from-content: 1
+
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+
+  key-duplicates: enable
+  new-line-at-end-of-file: enable
+  trailing-spaces: enable
+  quoted-strings: disable

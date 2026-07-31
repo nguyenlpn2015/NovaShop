@@ -1,5 +1,12 @@
 name: Release Container Images
 
+# Publishing is gated behind the shared validation workflow, so an image can
+# only exist for a commit that passed application tests, the security scan, and
+# platform desired-state validation. The moving `latest` tag is created in a
+# separate job that requires every component to have published successfully,
+# which prevents `latest` from ever advancing to a half-released or failed
+# build.
+
 on:
   push:
     branches:
@@ -13,21 +20,64 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BACKEND_IMAGE: ghcr.io/nguyenlpn2015/novashop-backend
-  FRONTEND_IMAGE: ghcr.io/nguyenlpn2015/novashop-frontend
+  IMAGE_NAMESPACE: ghcr.io/nguyenlpn2015
 
 jobs:
-  release:
-    name: Build and Publish
+  validate:
+    name: Validate
+    uses: ./.github/workflows/validation.yml
+    permissions:
+      contents: read
+    with:
+      caller: application
+      gitops-ref: main
+
+  publish:
+    name: Publish
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    strategy:
+      # A partial release must never leave one component ahead of the other.
+      fail-fast: true
+      matrix:
+        component:
+          - backend
+          - frontend
 
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      # The image is built into the local daemon first so it can be scanned
+      # before the registry ever sees it.
+      - name: Build image for scanning
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ${{ matrix.component }}
+          file: ${{ matrix.component }}/Dockerfile
+          push: false
+          load: true
+          tags: novashop-${{ matrix.component }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}-ci
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}-release
+
+      - name: Scan built image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: novashop-${{ matrix.component }}:${{ github.sha }}
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
 
       # GITHUB_TOKEN is scoped to this repository and expires with the job.
       - name: Log in to GitHub Container Registry
@@ -37,40 +87,59 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Every layer is already in the BuildKit cache from the scanned build, so
+      # this step publishes the validated content while still attaching the
+      # provenance and SBOM attestations that only the registry exporter emits.
+      - name: Publish immutable commit tag
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ${{ matrix.component }}
+          file: ${{ matrix.component }}/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_NAMESPACE }}/novashop-${{ matrix.component }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}-release
+          provenance: mode=max
+          sbom: true
+
+  promote:
+    name: Promote latest
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
-      # Publish an immutable commit tag plus the moving main-branch tag.
-      - name: Build and push backend image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4
         with:
-          context: backend
-          file: backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-            ${{ env.BACKEND_IMAGE }}:latest
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=backend-release
-          cache-to: type=gha,mode=max,scope=backend-release
-          provenance: mode=max
-          sbom: true
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
-        with:
-          context: frontend
-          file: frontend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-            ${{ env.FRONTEND_IMAGE }}:latest
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=frontend-release
-          cache-to: type=gha,mode=max,scope=frontend-release
-          provenance: mode=max
-          sbom: true
+      # Promotion is a registry-side manifest copy of an already validated and
+      # scanned digest. Nothing is rebuilt, so `latest` and the commit tag
+      # always describe the same artifact.
+      - name: Move latest to the released commit
+        run: |
+          set -Eeuo pipefail
+
+          for component in backend frontend; do
+            image="${IMAGE_NAMESPACE}/novashop-${component}"
+
+            docker buildx imagetools inspect "${image}:${GITHUB_SHA}" >/dev/null
+            docker buildx imagetools create \
+              --tag "${image}:latest" \
+              "${image}:${GITHUB_SHA}"
+            docker buildx imagetools inspect "${image}:latest" >/dev/null
+
+            printf '%s promoted to latest from %s\n' \
+              "${image}" "${GITHUB_SHA}" >>"${GITHUB_STEP_SUMMARY}"
+          done

@@ -57,6 +57,23 @@ rm -f "${RENDERED_MANIFEST}"
 
 ## Rollback
 
+Rollback is ordered by blast radius. Start at the top rung and stop as soon as
+service is restored.
+
+| Rung | GitOps phase | TLS | Effect |
+|------|--------------|-----|--------|
+| 1 | revert the values commit | preserved | Restores the previous image or replica count |
+| 2 | `phases/tls-baseline` | preserved | HTTPS still served, HTTP answers, HSTS `max-age=0` |
+| 3 | `phases/http` | **destroyed** | Break-glass only. Prunes the certificates |
+
+Rung 3 is not a normal rollback. Production advertises HSTS with a one-year
+`max-age`, so removing HTTPS makes returning browsers fail outright rather than
+fall back, and pruning deletes the `Certificate` resources. Let's Encrypt allows
+five duplicate certificates per identical hostname set per 168 hours, so
+repeatedly rolling down and back up can exhaust issuance for a week. Take a
+backup with `scripts/backup-platform-state.sh` before considering it, and only
+after browsers have already seen `max-age=0` from rung 2.
+
 Preferred rollback:
 
 ```bash
@@ -146,9 +163,22 @@ bash scripts/cleanup.sh --confirm --include-argocd
 
 The cleanup script does not uninstall k3s.
 
+## Back Up
+
+Certificate private keys and the ACME account key are the only platform state
+Git cannot reproduce. Capture them while the platform is healthy, and always
+before a planned teardown or node rebuild:
+
+```bash
+bash scripts/backup-platform-state.sh --output-dir /srv/novashop-state
+```
+
+The export contains private keys, is written with mode `0600`, and must be stored
+outside the cluster.
+
 ## Recover
 
-Reconcile the runtime safely:
+Reconcile a running cluster whose desired state drifted:
 
 ```bash
 bash scripts/install-argocd.sh
@@ -159,7 +189,17 @@ argocd app wait "${NOVASHOP_APP}" --sync --health --timeout 600
 ```
 
 If a runtime Secret was lost, export the appropriate database and Redis URLs
-and re-run `scripts/bootstrap.sh`.
+and re-run `scripts/bootstrap.sh`. A Secret that exists but lacks either key is
+rejected rather than accepted, so delete it before recreating it.
+
+Rebuild a replacement node from Git and a certificate backup:
+
+```bash
+bash scripts/linux/recover.sh --from-backup /srv/novashop-state
+```
+
+The full runbook, including what recovery reproduces and what it must restore, is
+[Disaster Recovery](recovery/disaster-recovery.md).
 
 ## Troubleshooting
 

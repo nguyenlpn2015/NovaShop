@@ -10,10 +10,14 @@ readonly REPO_ROOT
 readonly NODE_IP="${NODE_IP:-10.10.1.45}"
 readonly NODE_HOSTNAME="${NODE_HOSTNAME:-novashop-k3s}"
 readonly CONFIGURE_HOSTNAME="${CONFIGURE_HOSTNAME:-false}"
+readonly ENABLE_SYSTEM_UPGRADE="${ENABLE_SYSTEM_UPGRADE:-false}"
 readonly ENABLE_UFW="${ENABLE_UFW:-false}"
 readonly MANAGEMENT_CIDR="${MANAGEMENT_CIDR:-10.10.1.0/24}"
 readonly KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 readonly PLATFORM_ENV_FILE="${PLATFORM_ENV_FILE:-/root/.novashop-platform.env}"
+
+# shellcheck source=../lib/edge-phase.sh
+source "${REPO_ROOT}/scripts/lib/edge-phase.sh"
 
 log() {
   printf '[linux/bootstrap] %s\n' "$*"
@@ -57,9 +61,15 @@ load_platform_environment() {
 }
 
 prepare_server() {
-  log 'Updating Ubuntu and installing required packages.'
+  # The pending-reboot gate runs before any package operation. Upgrading first
+  # can create the reboot flag and abort a rerun through this script's own side
+  # effect, which is the opposite of rerun-safe.
+  if [[ -f /var/run/reboot-required ]]; then
+    die 'Ubuntu requires a reboot. Reboot the VM, then rerun this script.'
+  fi
+
+  log 'Installing required packages.'
   sudo apt-get update
-  sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes
   sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes \
     ca-certificates \
     curl \
@@ -69,8 +79,17 @@ prepare_server() {
     tar \
     ufw
 
-  if [[ -f /var/run/reboot-required ]]; then
-    die 'Ubuntu requires a reboot. Reboot the VM, then rerun this script.'
+  # A distribution upgrade changes kernel and library versions and is therefore
+  # neither idempotent nor safe to run implicitly during a recovery. It stays an
+  # explicit operator decision taken outside an outage.
+  if [[ "${ENABLE_SYSTEM_UPGRADE}" == "true" ]]; then
+    log 'Applying system upgrades on request.'
+    sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade --yes
+    if [[ -f /var/run/reboot-required ]]; then
+      die 'The system upgrade requires a reboot. Reboot the VM, then rerun this script.'
+    fi
+  else
+    log 'System upgrade skipped. Set ENABLE_SYSTEM_UPGRADE=true to apply upgrades.'
   fi
 
   if swapon --show --noheadings | grep -q .; then
@@ -114,6 +133,8 @@ verify_remote_repository() {
 }
 
 main() {
+  local phase
+
   require_command apt-get
   require_command hostnamectl
   require_command sudo
@@ -143,14 +164,18 @@ main() {
 
   log 'Bootstrapping NovaShop through the existing GitOps runtime.'
   export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
-  export EXPECTED_EDGE_SOURCE_PATH="kubernetes/ingress/examples"
-  export ENABLE_TLS_VALIDATION=true
-  export TLS_PHASE_ENABLED=true
-  export TLS_ISSUER_NAME=letsencrypt-production
-  export TLS_PRODUCTION_ENABLED=true
   bash "${REPO_ROOT}/scripts/bootstrap.sh"
+
+  # Verification follows whichever edge phase Git reconciled. Hard-coding the
+  # expectation here would make a rerun fail after a reviewed rollback, even
+  # though the cluster matched Git exactly.
+  phase="$(detect_edge_phase)"
+  log "Reconciled edge phase: ${phase}"
+  export_verification_environment "${phase}" \
+    || die "Edge phase '${phase}' cannot be verified. Inspect the GitOps repository."
+
   bash "${SCRIPT_DIR}/verify.sh"
-  log 'Deployment Target B production TLS phase is ready.'
+  log "Deployment Target B is ready in the ${phase} edge phase."
 }
 
 main "$@"

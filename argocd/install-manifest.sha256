@@ -1,0 +1,17 @@
+# Pinned SHA-256 digests of the official Argo CD installation manifests.
+#
+# scripts/install-argocd.sh downloads the manifest for the requested version and
+# refuses to apply it unless the digest matches the entry below. Without this
+# pin, bootstrap and disaster recovery would apply whatever content the upstream
+# host happens to serve, and a compromised or truncated response would install a
+# control plane nobody reviewed.
+#
+# To adopt a new Argo CD release, update ARGOCD_VERSION in
+# scripts/install-argocd.sh, add the digest here in the same reviewed pull
+# request, and record the upgrade in CHANGELOG.md. Compute the digest with:
+#
+#   curl --fail --silent --show-error --location \
+#     "https://raw.githubusercontent.com/argoproj/argo-cd/<version>/manifests/install.yaml" \
+#     | sha256sum
+#
+b0f9119821f2e19b852c842b9cb235eb9c3ef1549554fbda6aa5904e8d440eae  argo-cd-v3.4.4-install.yaml

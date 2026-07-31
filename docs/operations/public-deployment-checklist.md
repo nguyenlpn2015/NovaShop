@@ -146,8 +146,14 @@ curl --fail --show-error https://api.novashop.smartdev.vn/health
 ## Rollback Readiness
 
 - [ ] Prior DNS and proxy state can be restored.
-- [ ] FortiGate policy and VIP can be disabled without affecting management.
-- [ ] Prior valid TLS Secret can be restored.
+- [ ] FortiGate policy and VIB can be disabled without affecting management.
+- [ ] A certificate backup exists, taken with
+      `scripts/backup-platform-state.sh`.
+- [ ] The rollback target is the TLS-preserving `phases/tls-baseline`, not the
+      HTTP-only phase.
+- [ ] Operators know that rolling back to `phases/http` prunes the certificates
+      and that reissuance is limited to five duplicates per hostname set per
+      168 hours.
 - [ ] GitOps rollback revision is identified.
 - [ ] Operators know how to distinguish Cloudflare, firewall, Traefik, and
       application failures.
