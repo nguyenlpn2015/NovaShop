@@ -52,14 +52,9 @@ Open the Argo CD UI:
 Use Target B on the Ubuntu Server 22.04 platform lab:
 
 ```bash
-read -rsp 'PostgreSQL URL: ' DATABASE_URL
-printf '\n'
-read -rsp 'Redis URL: ' REDIS_URL
-printf '\n'
-export DATABASE_URL REDIS_URL
-
+sudo test -r /root/.novashop-platform.env
+sudo chmod 600 /root/.novashop-platform.env
 bash scripts/linux/bootstrap.sh
-unset DATABASE_URL REDIS_URL
 ```
 
 Open the Argo CD UI:
@@ -104,6 +99,46 @@ systemd-based operations, networking, upgrades, backup, and recovery practice.
   [GitOps architecture](docs/GITOPS_ARCHITECTURE.md),
   [runtime diagram](diagrams/GITOPS_RUNTIME.md), and
   [deployment target comparison](diagrams/DEPLOYMENT_TARGETS.md).
+
+---
+
+# 🌍 Public Internet Deployment
+
+Deployment Target B can be extended with a production-like public edge:
+
+```text
+Cloudflare -> Public IP -> FortiGate VIP -> Ubuntu + k3s
+  -> Traefik -> Kubernetes Ingress -> NovaShop
+```
+
+The edge design preserves the existing GitOps architecture and keeps
+PostgreSQL, Redis, SSH, Argo CD, and the Kubernetes API off the public path.
+
+The public edge is delivered in two controlled phases:
+
+1. HTTP routing through Cloudflare, FortiGate, Traefik, and Ingress is the
+   bootstrap default.
+2. cert-manager, ACME certificates, HTTPS redirects, and HSTS are repository
+   integrated but require a separate reviewed GitOps activation.
+
+Running `scripts/linux/bootstrap.sh` does not install cert-manager or enable
+HTTPS.
+
+| Area | Documentation |
+|------|---------------|
+| End-to-end networking | [Public Access Architecture](docs/networking/public-access.md) |
+| Cloudflare DNS and proxy | [Cloudflare](docs/networking/cloudflare.md) |
+| FortiGate VIP and firewall | [FortiGate](docs/networking/fortigate.md) |
+| Traefik routing and Middleware | [Traefik](docs/networking/traefik.md) |
+| TLS selection and renewal | [TLS Strategy](docs/security/tls.md) and [Certificate Lifecycle](docs/networking/ssl-renewal.md) |
+| Edge security | [Public Edge Hardening](docs/security/hardening.md) |
+| Operational validation | [Public Deployment Checklist](docs/operations/public-deployment-checklist.md) |
+| Architecture | [Edge Architecture Diagram](diagrams/EDGE_ARCHITECTURE.md) |
+
+The active HTTP manifests are under
+[`kubernetes/ingress/http`](kubernetes/ingress/http/). TLS-ready examples remain
+under [`kubernetes/ingress/examples`](kubernetes/ingress/examples/) for the
+reviewed second phase. Docker Desktop continues using its local Ingress.
 
 ---
 

@@ -12,4 +12,4 @@ data:
   APP_NAME: "NovaShop API"
   APP_VERSION: "0.1.0"
   ENVIRONMENT: "production"
-  NEXT_PUBLIC_API_URL: "https://api.novashop.local"
+  NEXT_PUBLIC_API_URL: "https://api.novashop.smartdev.vn"

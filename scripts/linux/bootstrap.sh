@@ -13,6 +13,7 @@ readonly CONFIGURE_HOSTNAME="${CONFIGURE_HOSTNAME:-false}"
 readonly ENABLE_UFW="${ENABLE_UFW:-false}"
 readonly MANAGEMENT_CIDR="${MANAGEMENT_CIDR:-10.10.1.0/24}"
 readonly KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
+readonly PLATFORM_ENV_FILE="${PLATFORM_ENV_FILE:-/root/.novashop-platform.env}"
 
 log() {
   printf '[linux/bootstrap] %s\n' "$*"
@@ -25,6 +26,34 @@ die() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
+}
+
+load_platform_environment() {
+  local file_mode
+  local file_owner
+
+  [[ -f "${PLATFORM_ENV_FILE}" ]] \
+    || die "Platform environment file is missing: ${PLATFORM_ENV_FILE}"
+  [[ -r "${PLATFORM_ENV_FILE}" ]] \
+    || die "Platform environment file is not readable: ${PLATFORM_ENV_FILE}"
+
+  file_owner="$(stat --format='%u' "${PLATFORM_ENV_FILE}")"
+  file_mode="$(stat --format='%a' "${PLATFORM_ENV_FILE}")"
+  [[ "${file_owner}" == "0" ]] \
+    || die "Platform environment file must be owned by root: ${PLATFORM_ENV_FILE}"
+  (( (8#${file_mode} & 8#077) == 0 )) \
+    || die "Platform environment file must not be accessible by group or others; run: chmod 600 ${PLATFORM_ENV_FILE}"
+
+  log "Loading platform environment from ${PLATFORM_ENV_FILE}."
+  set -a
+  # shellcheck disable=SC1090
+  source "${PLATFORM_ENV_FILE}"
+  set +a
+
+  [[ -n "${DATABASE_URL:-}" ]] \
+    || die "DATABASE_URL is missing from ${PLATFORM_ENV_FILE}."
+  [[ -n "${REDIS_URL:-}" ]] \
+    || die "REDIS_URL is missing from ${PLATFORM_ENV_FILE}."
 }
 
 prepare_server() {
@@ -89,8 +118,10 @@ main() {
   require_command hostnamectl
   require_command sudo
   require_command swapon
+  require_command stat
   require_command timedatectl
 
+  load_platform_environment
   prepare_server
   require_command git
   configure_firewall
@@ -110,15 +141,12 @@ main() {
   bash "${SCRIPT_DIR}/install-argocd.sh"
   export PATH="${HOME}/.local/bin:${PATH}"
 
-  [[ -n "${DATABASE_URL:-}" ]] \
-    || die 'DATABASE_URL is required and must be reachable from k3s.'
-  [[ -n "${REDIS_URL:-}" ]] \
-    || die 'REDIS_URL is required and must be reachable from k3s.'
-
   log 'Bootstrapping NovaShop through the existing GitOps runtime.'
+  export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
   bash "${REPO_ROOT}/scripts/bootstrap.sh"
   bash "${SCRIPT_DIR}/verify.sh"
-  log 'Deployment Target B is ready.'
+  log 'Deployment Target B HTTP phase is ready.'
+  log 'cert-manager and HTTPS remain disabled until the reviewed TLS GitOps phase is activated.'
 }
 
 main "$@"
