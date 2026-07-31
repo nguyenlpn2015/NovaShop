@@ -88,8 +88,8 @@ is the only environment intended for general Internet access.
 11. Enable HTTP-to-HTTPS redirect, HSTS, Cloudflare proxying, and Full (strict)
     only after production certificates are healthy.
 
-The Linux bootstrap does not install cert-manager. This separation prevents an
-ACME or Certificate failure from obscuring HTTP routing validation.
+The staged rollout is complete. The Linux bootstrap now reconciles the active
+production TLS state; the HTTP-only GitOps phase remains the rollback boundary.
 
 ## Origin Validation
 

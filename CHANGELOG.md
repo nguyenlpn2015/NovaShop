@@ -13,6 +13,8 @@ and this project adheres to
 - Repository governance policies and community health documentation.
 - Project charter and engineering principles.
 - Repository-wide formatting and Git behavior configuration.
+- GitOps-managed production TLS enforcement with permanent HTTPS redirects and
+  HSTS after successful Let's Encrypt staging and production validation.
 
 ### Fixed
 

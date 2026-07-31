@@ -1,19 +1,18 @@
 # cert-manager
 
-These resources integrate cert-manager and Let's Encrypt into the repository
-without installing them during the default Ubuntu bootstrap.
+These resources operate cert-manager and Let's Encrypt for the Ubuntu k3s
+production edge through Argo CD.
 
 ## Deployment Phases
 
 | Phase | Default | Desired state |
 |------|---------|---------------|
-| HTTP | Yes | Public DNS, FortiGate, Traefik, HTTP Ingress, application health |
-| TLS staging | No | cert-manager, staging ClusterIssuer, staging Certificates, HTTPS |
-| TLS production | No | Production ClusterIssuer, trusted Certificates, redirect and HSTS |
+| HTTP | Completed | Public DNS, FortiGate, Traefik, HTTP Ingress, application health |
+| TLS staging | Completed | ACME HTTP-01 and certificate lifecycle validation |
+| TLS production | Active | Trusted Certificates, redirect, HSTS, and automatic renewal |
 
-The GitOps root currently references `clusters/ubuntu-k3s/phases/http`.
-Activating TLS requires a reviewed change to
-`clusters/ubuntu-k3s/kustomization.yaml`; bootstrap never makes that decision.
+The GitOps root references `clusters/ubuntu-k3s/phases/tls`, and the
+Certificate Application selects `certificate.yaml`.
 
 ## Resources
 
@@ -46,15 +45,13 @@ never be committed.
 
 ## Verification
 
-After TLS has been deliberately activated:
+Production validation:
 
 ```bash
 TLS_PHASE_ENABLED=true \
-TLS_ISSUER_NAME=letsencrypt-staging \
+TLS_ISSUER_NAME=letsencrypt-production \
+TLS_PRODUCTION_ENABLED=true \
 bash scripts/linux/verify.sh
 ```
 
-Use `TLS_ISSUER_NAME=letsencrypt-production` only after production promotion.
-Production verification also sets `TLS_PRODUCTION_ENABLED=true` after redirect
-and HSTS are enabled by that reviewed change.
 See [edge verification](../../docs/networking/verification.md).

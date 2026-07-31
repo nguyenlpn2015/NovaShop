@@ -114,15 +114,16 @@ Cloudflare -> Public IP -> FortiGate VIP -> Ubuntu + k3s
 The edge design preserves the existing GitOps architecture and keeps
 PostgreSQL, Redis, SSH, Argo CD, and the Kubernetes API off the public path.
 
-The public edge is delivered in two controlled phases:
+The public edge was delivered through controlled HTTP, staging TLS, production
+TLS, and enforcement gates:
 
-1. HTTP routing through Cloudflare, FortiGate, Traefik, and Ingress is the
-   bootstrap default.
-2. cert-manager, ACME certificates, HTTPS redirects, and HSTS are repository
-   integrated but require a separate reviewed GitOps activation.
+1. HTTP routing validated Cloudflare, FortiGate, Traefik, and Ingress.
+2. Let's Encrypt staging validated ACME HTTP-01 and renewal.
+3. Let's Encrypt production established publicly trusted HTTPS.
+4. The production edge enforces HTTP-to-HTTPS redirect and HSTS.
 
-Running `scripts/linux/bootstrap.sh` does not install cert-manager or enable
-HTTPS.
+The Ubuntu bootstrap now reconciles and verifies the completed production TLS
+desired state through Argo CD.
 
 | Area | Documentation |
 |------|---------------|
@@ -135,10 +136,11 @@ HTTPS.
 | Operational validation | [Public Deployment Checklist](docs/operations/public-deployment-checklist.md) |
 | Architecture | [Edge Architecture Diagram](diagrams/EDGE_ARCHITECTURE.md) |
 
-The active HTTP manifests are under
-[`kubernetes/ingress/http`](kubernetes/ingress/http/). TLS-ready examples remain
-under [`kubernetes/ingress/examples`](kubernetes/ingress/examples/) for the
-reviewed second phase. Docker Desktop continues using its local Ingress.
+Production edge manifests are under
+[`kubernetes/ingress/examples`](kubernetes/ingress/examples/). The prior
+HTTP-only manifests remain under
+[`kubernetes/ingress/http`](kubernetes/ingress/http/) as the rollback target.
+Docker Desktop continues using its local Ingress.
 
 ---
 
