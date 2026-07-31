@@ -143,6 +143,7 @@ main() {
 
   log 'Bootstrapping NovaShop through the existing GitOps runtime.'
   export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
+  export EXPECTED_EDGE_SOURCE_PATH="kubernetes/ingress/http"
   bash "${REPO_ROOT}/scripts/bootstrap.sh"
   bash "${SCRIPT_DIR}/verify.sh"
   log 'Deployment Target B HTTP phase is ready.'

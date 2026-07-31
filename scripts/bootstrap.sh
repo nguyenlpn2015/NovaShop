@@ -15,6 +15,7 @@ readonly ENVIRONMENTS=(development staging production)
 ARGOCD_APPLICATION_MANIFEST="${ARGOCD_APPLICATION_MANIFEST:-${REPO_ROOT}/argocd/application.yaml}"
 readonly ARGOCD_APPLICATION_MANIFEST
 readonly ENABLE_TLS_VALIDATION="${ENABLE_TLS_VALIDATION:-false}"
+readonly EXPECTED_EDGE_SOURCE_PATH="${EXPECTED_EDGE_SOURCE_PATH:-}"
 
 KUBECTL=(kubectl)
 if [[ -n "${KUBE_CONTEXT:-}" ]]; then
@@ -62,6 +63,46 @@ wait_for_namespace() {
   done
 }
 
+wait_for_application_source_path() {
+  local application="$1"
+  local expected_path="$2"
+  local elapsed=0
+  local paths
+
+  until paths="$(
+    "${KUBECTL[@]}" get application "${application}" \
+      --namespace "${ARGOCD_NAMESPACE}" \
+      --output=jsonpath='{range .spec.sources[*]}{.path}{"\n"}{end}' \
+      2>/dev/null
+  )" && grep --fixed-strings --line-regexp --quiet \
+    "${expected_path}" <<<"${paths}"; do
+    if (( elapsed >= WAIT_SECONDS )); then
+      die "Timed out waiting for ${application} source path ${expected_path}."
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+}
+
+wait_for_application_ready() {
+  local application="$1"
+  local elapsed=0
+  local state
+
+  until state="$(
+    "${KUBECTL[@]}" get application "${application}" \
+      --namespace "${ARGOCD_NAMESPACE}" \
+      --output=jsonpath='{.status.sync.status}/{.status.health.status}' \
+      2>/dev/null
+  )" && [[ "${state}" == "Synced/Healthy" ]]; do
+    if (( elapsed >= WAIT_SECONDS )); then
+      die "Timed out waiting for ${application}; current state: ${state:-unknown}."
+    fi
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+}
+
 ensure_runtime_secret() {
   local environment="$1"
   local namespace="novashop-${environment}"
@@ -102,6 +143,7 @@ main() {
   local environment
 
   require_command kubectl
+  require_command grep
   require_command sed
   require_command sleep
 
@@ -137,6 +179,11 @@ main() {
       "${ARGOCD_NAMESPACE}"
     wait_for_namespace "novashop-${environment}"
     ensure_runtime_secret "${environment}"
+    if [[ -n "${EXPECTED_EDGE_SOURCE_PATH}" ]]; then
+      wait_for_application_source_path \
+        "novashop-${environment}" \
+        "${EXPECTED_EDGE_SOURCE_PATH}"
+    fi
   done
 
   for environment in "${ENVIRONMENTS[@]}"; do
@@ -148,7 +195,15 @@ main() {
       deployment/novashop-backend \
       deployment/novashop-frontend \
       --timeout="${WAIT_TIMEOUT}"
+    wait_for_application_ready "novashop-${environment}"
+    if [[ -n "${EXPECTED_EDGE_SOURCE_PATH}" ]]; then
+      wait_for_resource \
+        "ingress/novashop-public-http" \
+        "novashop-${environment}"
+    fi
   done
+
+  wait_for_application_ready "novashop-root"
 
   if [[ "${ENABLE_TLS_VALIDATION}" == "true" ]]; then
     wait_for_resource \
