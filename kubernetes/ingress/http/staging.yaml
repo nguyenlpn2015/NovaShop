@@ -1,8 +1,8 @@
-# TLS staging phase. Redirect and HSTS require a later production promotion.
+# Phase 1 public edge: HTTP only. TLS resources are intentionally not enabled.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: novashop-security-headers
+  name: novashop-http-headers
   namespace: novashop-staging
   labels:
     app.kubernetes.io/name: novashop
@@ -19,7 +19,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: novashop-compress
+  name: novashop-http-compress
   namespace: novashop-staging
   labels:
     app.kubernetes.io/name: novashop
@@ -31,7 +31,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: novashop-secure-chain
+  name: novashop-http-chain
   namespace: novashop-staging
   labels:
     app.kubernetes.io/name: novashop
@@ -40,8 +40,8 @@ metadata:
 spec:
   chain:
     middlewares:
-      - name: novashop-security-headers
-      - name: novashop-compress
+      - name: novashop-http-headers
+      - name: novashop-http-compress
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -55,52 +55,9 @@ metadata:
     app.kubernetes.io/part-of: novashop
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
-    traefik.ingress.kubernetes.io/router.middlewares: novashop-staging-novashop-secure-chain@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: novashop-staging-novashop-http-chain@kubernetescrd
 spec:
   ingressClassName: traefik
-  rules:
-    - host: staging.novashop.smartdev.vn
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: novashop-frontend
-                port:
-                  name: http
-    - host: api.staging.novashop.smartdev.vn
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: novashop-backend
-                port:
-                  name: http
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: novashop-public-https
-  namespace: novashop-staging
-  labels:
-    app.kubernetes.io/name: novashop
-    app.kubernetes.io/instance: novashop-staging
-    app.kubernetes.io/component: ingress
-    app.kubernetes.io/part-of: novashop
-  annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.middlewares: novashop-staging-novashop-secure-chain@kubernetescrd
-    traefik.ingress.kubernetes.io/router.tls: "true"
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - staging.novashop.smartdev.vn
-        - api.staging.novashop.smartdev.vn
-      secretName: novashop-staging-tls
   rules:
     - host: staging.novashop.smartdev.vn
       http:

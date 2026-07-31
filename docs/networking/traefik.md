@@ -133,9 +133,11 @@ Expected behavior:
 
 ## cert-manager Integration
 
-cert-manager issues and renews the environment certificates through ACME
-HTTP-01. It owns only certificate lifecycle; Traefik remains the Ingress
-controller and Argo CD remains the desired-state reconciler. See the
+cert-manager is repository-integrated but disabled during the default HTTP
+bootstrap. After a reviewed TLS GitOps activation, it issues and renews the
+environment certificates through ACME HTTP-01. It owns only certificate
+lifecycle; Traefik remains the Ingress controller and Argo CD remains the
+desired-state reconciler. See the
 [cert-manager manifests](../../kubernetes/cert-manager/README.md).
 
 ## References

@@ -4,6 +4,26 @@ Complete this checklist for one environment at a time. Record evidence in the
 change request without including public IP details, credentials, private keys,
 or sensitive firewall configuration.
 
+Complete and approve the HTTP gate before opening the separate TLS activation
+pull request. The default Linux bootstrap must not install cert-manager.
+
+## HTTP Phase Gate
+
+- [ ] Ubuntu GitOps root references `phases/http`.
+- [ ] cert-manager and Certificate Applications do not exist.
+- [ ] Public DNS resolves and TCP 80 reaches Traefik.
+- [ ] Frontend and backend health return HTTP 200.
+- [ ] HTTP latency is below the approved threshold.
+- [ ] Argo CD and all environment Applications are Synced and Healthy.
+- [ ] HTTP rollback has been tested or documented.
+
+## TLS Change Gate
+
+- [ ] A separate reviewed GitOps pull request selects `phases/tls`.
+- [ ] The initial rollout selects `certificate-staging.yaml`.
+- [ ] ACME staging issuance and rollback succeed before production promotion.
+- [ ] Production promotion is a separate reviewed GitOps change.
+
 ## Change Control
 
 - [ ] Change owner, reviewer, maintenance window, and rollback owner assigned.

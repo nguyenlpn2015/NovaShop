@@ -114,6 +114,16 @@ Cloudflare -> Public IP -> FortiGate VIP -> Ubuntu + k3s
 The edge design preserves the existing GitOps architecture and keeps
 PostgreSQL, Redis, SSH, Argo CD, and the Kubernetes API off the public path.
 
+The public edge is delivered in two controlled phases:
+
+1. HTTP routing through Cloudflare, FortiGate, Traefik, and Ingress is the
+   bootstrap default.
+2. cert-manager, ACME certificates, HTTPS redirects, and HSTS are repository
+   integrated but require a separate reviewed GitOps activation.
+
+Running `scripts/linux/bootstrap.sh` does not install cert-manager or enable
+HTTPS.
+
 | Area | Documentation |
 |------|---------------|
 | End-to-end networking | [Public Access Architecture](docs/networking/public-access.md) |
@@ -125,9 +135,10 @@ PostgreSQL, Redis, SSH, Argo CD, and the Kubernetes API off the public path.
 | Operational validation | [Public Deployment Checklist](docs/operations/public-deployment-checklist.md) |
 | Architecture | [Edge Architecture Diagram](diagrams/EDGE_ARCHITECTURE.md) |
 
-Ingress examples for development, staging, and production are available under
-[`kubernetes/ingress/examples`](kubernetes/ingress/examples/). The Ubuntu k3s
-overlay reconciles them; Docker Desktop continues using its local Ingress.
+The active HTTP manifests are under
+[`kubernetes/ingress/http`](kubernetes/ingress/http/). TLS-ready examples remain
+under [`kubernetes/ingress/examples`](kubernetes/ingress/examples/) for the
+reviewed second phase. Docker Desktop continues using its local Ingress.
 
 ---
 

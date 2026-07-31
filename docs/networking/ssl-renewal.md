@@ -33,9 +33,10 @@ Do not store private keys, API tokens, or Secret exports in the inventory.
 
 ## Automated Renewal
 
-cert-manager owns routine issuance and renewal. Operators monitor `Certificate`,
-`CertificateRequest`, `Order`, and `Challenge` conditions and verify the served
-certificate after every renewal.
+After the reviewed TLS phase is activated, cert-manager owns routine issuance
+and renewal. It is not installed by the default bootstrap. Operators monitor
+`Certificate`, `CertificateRequest`, `Order`, and `Challenge` conditions and
+verify the served certificate after every renewal.
 
 ```bash
 kubectl get certificates --all-namespaces

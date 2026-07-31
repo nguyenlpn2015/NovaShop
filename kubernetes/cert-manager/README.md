@@ -1,47 +1,60 @@
 # cert-manager
 
-The Ubuntu k3s GitOps overlay installs cert-manager `v1.21.0` from the official
-OCI Helm chart and reconciles the resources in this directory.
+These resources integrate cert-manager and Let's Encrypt into the repository
+without installing them during the default Ubuntu bootstrap.
 
-## Ownership
+## Deployment Phases
 
-| File | Owner | Purpose |
-|------|-------|---------|
-| `namespace.yaml` | Argo CD | Isolates cert-manager controllers |
-| `helm-values.yaml` | Argo CD Helm source | Enables retained CRDs and single-node resource limits |
-| `clusterissuer.yaml` | cert-manager | Registers the Let's Encrypt production ACME account |
-| `certificate.yaml` | cert-manager | Issues and renews one certificate per NovaShop environment |
+| Phase | Default | Desired state |
+|------|---------|---------------|
+| HTTP | Yes | Public DNS, FortiGate, Traefik, HTTP Ingress, application health |
+| TLS staging | No | cert-manager, staging ClusterIssuer, staging Certificates, HTTPS |
+| TLS production | No | Production ClusterIssuer, trusted Certificates, redirect and HSTS |
 
-The ACME HTTP-01 solver uses `ingressClassName: traefik`. Public DNS and TCP 80
-must reach the Traefik `web` entrypoint before issuance can complete.
+The GitOps root currently references `clusters/ubuntu-k3s/phases/http`.
+Activating TLS requires a reviewed change to
+`clusters/ubuntu-k3s/kustomization.yaml`; bootstrap never makes that decision.
 
-Certificate private keys, ACME account keys, and generated TLS Secrets are
-controller-managed runtime data. They must not be committed to Git.
+## Resources
 
-## GitOps Flow
+| File | Purpose |
+|------|---------|
+| `namespace.yaml` | Isolated controller namespace |
+| `helm-values.yaml` | Pinned chart configuration |
+| `clusterissuer.yaml` | Let's Encrypt staging and production issuers |
+| `certificate-staging.yaml` | Initial ACME validation using staging |
+| `certificate.yaml` | Production certificate promotion |
 
-```text
-NovaShop-GitOps Ubuntu overlay
-  -> cert-manager OCI Helm chart
-  -> ClusterIssuer
-  -> Certificate resources
-  -> temporary HTTP-01 Ingress
-  -> Let's Encrypt validation
-  -> environment TLS Secrets
-  -> Traefik HTTPS Ingress
-```
+The first TLS activation uses `letsencrypt-staging`. Its certificate is not
+browser trusted; it proves DNS, TCP 80, Traefik HTTP-01, issuance, Secret
+creation, and renewal behavior without consuming production rate limits.
 
-No operator `kubectl apply` is required after bootstrap. Argo CD reconciles the
-installation and cert-manager reconciles certificate issuance and renewal.
+Production promotion changes the Certificate Application include from
+`certificate-staging.yaml` to `certificate.yaml` in a reviewed GitOps pull
+request.
 
-## Runtime Verification
+## Preconditions
+
+- Every requested hostname resolves publicly.
+- FortiGate forwards TCP 80 to Traefik.
+- Cloudflare and WAF rules allow `/.well-known/acme-challenge/`.
+- HTTP frontend and backend health have already been validated.
+- A rollback commit and operator are identified.
+
+Private keys, ACME account keys, generated TLS Secrets, and API tokens must
+never be committed.
+
+## Verification
+
+After TLS has been deliberately activated:
 
 ```bash
-kubectl get pods --namespace cert-manager
-kubectl get clusterissuer letsencrypt-production
-kubectl get certificates --all-namespaces
-kubectl get challenges,orders --all-namespaces
+TLS_PHASE_ENABLED=true \
+TLS_ISSUER_NAME=letsencrypt-staging \
+bash scripts/linux/verify.sh
 ```
 
-See [edge verification](../../docs/networking/verification.md) for expected
-results and troubleshooting.
+Use `TLS_ISSUER_NAME=letsencrypt-production` only after production promotion.
+Production verification also sets `TLS_PRODUCTION_ENABLED=true` after redirect
+and HSTS are enabled by that reviewed change.
+See [edge verification](../../docs/networking/verification.md).

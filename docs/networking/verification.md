@@ -1,7 +1,8 @@
 # Production Edge Verification
 
-Run verification after Argo CD has reconciled the Ubuntu k3s overlay. No
-operator `kubectl apply` or patch is part of this procedure.
+Verification is deliberately phased. The default Ubuntu bootstrap validates
+HTTP without installing cert-manager. Run the TLS checks only after a reviewed
+GitOps change activates the TLS phase.
 
 ## Automated Verification
 
@@ -13,11 +14,33 @@ cd ~/NovaShop
 bash scripts/linux/verify.sh
 ```
 
-Every check prints `PASS` or `FAIL`. Success ends with:
+The default run verifies Nodes, disk, memory, Traefik, Argo CD, Pods, Secrets,
+DNS, HTTP status, HTTP latency, Ingress, and HTTP-safe security headers. It
+must explicitly report that cert-manager installation was skipped.
+
+Every check prints `PASS` or `FAIL`. HTTP phase success ends with:
 
 ```text
+[linux/verify] PASS: TLS phase is disabled; cert-manager installation is intentionally skipped
 [linux/verify] RESULT: PASS (... passed, 0 failed)
 ```
+
+After the reviewed TLS GitOps phase is active, enable the additional checks:
+
+```bash
+TLS_PHASE_ENABLED=true \
+TLS_ISSUER_NAME=letsencrypt-staging \
+bash scripts/linux/verify.sh
+```
+
+The staging chain is intentionally not publicly trusted. Automated staging
+HTTPS checks allow that chain only after the Kubernetes Certificate and TLS
+Secret have been validated. Production checks retain normal trust validation.
+
+Use `TLS_ISSUER_NAME=letsencrypt-production` only after the Certificate
+Application has been promoted from `certificate-staging.yaml` to
+`certificate.yaml`. Set `TLS_PRODUCTION_ENABLED=true` only after the same
+reviewed promotion enables HTTP redirect and HSTS.
 
 ## DNS Resolution
 
@@ -30,7 +53,20 @@ getent ahostsv4 novashop.smartdev.vn
 Expected: each command returns at least one IPv4 address. Proxied Cloudflare
 records return Cloudflare addresses rather than the FortiGate public address.
 
-## Argo CD
+## HTTP Phase Health
+
+```bash
+curl --fail http://dev.novashop.smartdev.vn/
+curl --fail http://api.dev.novashop.smartdev.vn/health
+curl --fail http://staging.novashop.smartdev.vn/
+curl --fail http://api.staging.novashop.smartdev.vn/health
+curl --fail http://novashop.smartdev.vn/
+curl --fail http://api.novashop.smartdev.vn/health
+```
+
+Expected: every request returns HTTP 200 before cert-manager is activated.
+
+## Argo CD: TLS Phase
 
 ```bash
 kubectl get applications --namespace argocd
@@ -47,7 +83,7 @@ novashop-staging         Synced   Healthy
 novashop-production      Synced   Healthy
 ```
 
-## Traefik
+## Traefik: TLS Phase
 
 ```bash
 kubectl --namespace kube-system get deployment traefik
@@ -59,7 +95,7 @@ Expected: Traefik is Available and each environment has HTTP and HTTPS Ingress
 resources plus redirect, security-header, compression, and chain Middleware
 resources.
 
-## cert-manager
+## cert-manager: TLS Phase
 
 ```bash
 kubectl get pods --namespace cert-manager
@@ -98,7 +134,7 @@ kubectl get pods --all-namespaces
 Expected: all platform namespaces are Active, every environment has a
 `kubernetes.io/tls` Secret, and application Pods are Ready.
 
-## HTTP Redirect
+## HTTP Redirect: TLS Phase
 
 ```bash
 curl --head http://dev.novashop.smartdev.vn
@@ -108,7 +144,7 @@ curl --head http://novashop.smartdev.vn
 
 Expected: HTTP status `301`, `302`, `307`, or `308` with an HTTPS `Location`.
 
-## HTTPS and Health
+## HTTPS and Health: TLS Phase
 
 ```bash
 curl --fail https://dev.novashop.smartdev.vn/
@@ -121,9 +157,10 @@ curl --fail https://novashop.smartdev.vn/
 curl --fail https://api.novashop.smartdev.vn/health
 ```
 
-Expected: every request returns HTTP 200 with a publicly trusted certificate.
+Expected during production promotion: every request returns HTTP 200 with a
+publicly trusted certificate.
 
-## Security Headers
+## Security Headers: TLS Phase
 
 ```bash
 curl --head https://novashop.smartdev.vn

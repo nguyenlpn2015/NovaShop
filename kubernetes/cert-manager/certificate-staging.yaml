@@ -1,0 +1,71 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-development-tls
+  namespace: novashop-development
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop-development
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+spec:
+  secretName: novashop-development-tls
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-staging
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - dev.novashop.smartdev.vn
+    - api.dev.novashop.smartdev.vn
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-staging-tls
+  namespace: novashop-staging
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop-staging
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+spec:
+  secretName: novashop-staging-tls
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-staging
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - staging.novashop.smartdev.vn
+    - api.staging.novashop.smartdev.vn
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-production-tls
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop-production
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+spec:
+  secretName: novashop-production-tls
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-staging
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - novashop.smartdev.vn
+    - api.novashop.smartdev.vn

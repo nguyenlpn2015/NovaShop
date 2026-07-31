@@ -14,7 +14,7 @@ readonly MINIMUM_KUBERNETES_MINOR=33
 readonly ENVIRONMENTS=(development staging production)
 ARGOCD_APPLICATION_MANIFEST="${ARGOCD_APPLICATION_MANIFEST:-${REPO_ROOT}/argocd/application.yaml}"
 readonly ARGOCD_APPLICATION_MANIFEST
-readonly ENABLE_PUBLIC_EDGE_VALIDATION="${ENABLE_PUBLIC_EDGE_VALIDATION:-false}"
+readonly ENABLE_TLS_VALIDATION="${ENABLE_TLS_VALIDATION:-false}"
 
 KUBECTL=(kubectl)
 if [[ -n "${KUBE_CONTEXT:-}" ]]; then
@@ -150,7 +150,7 @@ main() {
       --timeout="${WAIT_TIMEOUT}"
   done
 
-  if [[ "${ENABLE_PUBLIC_EDGE_VALIDATION}" == "true" ]]; then
+  if [[ "${ENABLE_TLS_VALIDATION}" == "true" ]]; then
     wait_for_resource \
       "application/novashop-cert-manager" \
       "${ARGOCD_NAMESPACE}"

@@ -1,6 +1,7 @@
 # Public Access Architecture
 
-This document extends Deployment Target B with public HTTP and HTTPS access.
+This document extends Deployment Target B with phased public HTTP and HTTPS
+access.
 It does not change the GitOps reconciliation model, Helm chart, or application
 runtime.
 
@@ -75,14 +76,20 @@ is the only environment intended for general Internet access.
    carrier-grade NAT prevents port forwarding.
 3. Configure FortiGate VIP mappings and the least-privilege inbound policy.
 4. Confirm Traefik is listening on `10.10.1.45:80` and `10.10.1.45:443`.
-5. Confirm the GitOps-managed cert-manager Application is Healthy.
-6. Apply the appropriate example Ingress through the normal reviewed delivery
-   process.
-7. Validate the origin directly before enabling the Cloudflare proxy.
-8. Create DNS records with proxy disabled and validate end to end.
-9. Wait for cert-manager to issue every environment certificate.
-10. Enable Cloudflare proxying and Full (strict) encryption.
-11. Apply edge security controls and complete the public deployment checklist.
+5. Merge the HTTP-only GitOps phase and run the normal Linux bootstrap.
+6. Create DNS records with proxy disabled and validate HTTP end to end.
+7. Confirm HTTP frontend and backend health before introducing TLS.
+8. Open a separate GitOps pull request that changes the Ubuntu overlay from
+   `phases/http` to `phases/tls`.
+9. Validate the Let's Encrypt staging issuer, certificates, HTTPS routing, and
+   rollback path.
+10. Promote Certificate resources to the production issuer through another
+    reviewed GitOps change.
+11. Enable HTTP-to-HTTPS redirect, HSTS, Cloudflare proxying, and Full (strict)
+    only after production certificates are healthy.
+
+The Linux bootstrap does not install cert-manager. This separation prevents an
+ACME or Certificate failure from obscuring HTTP routing validation.
 
 ## Origin Validation
 

@@ -1,4 +1,4 @@
-# cert-manager is installed once per cluster by the Ubuntu k3s GitOps overlay.
+# Inactive by default. Installed only after the reviewed TLS GitOps phase is enabled.
 crds:
   enabled: true
   keep: true

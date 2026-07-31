@@ -1,9 +1,24 @@
 # NovaShop Edge Architecture
 
+The request path is introduced in two stages. Phase 1 uses HTTP through
+Traefik. Phase 2 adds the certificate path shown below only after a reviewed
+GitOps activation:
+
+```text
+GitOps TLS phase (inactive by default)
+        |
+        v
+cert-manager -> ACME ClusterIssuer -> Certificate -> TLS Secret
+                                                    |
+                                                    v
+                                             Traefik websecure
+```
+
 ```text
                                   Internet Users
                                         |
-                                        | HTTPS
+                                        | HTTP (Phase 1)
+                                        | HTTPS (Phase 2)
                                         v
                               +--------------------+
                               | Cloudflare Edge    |
