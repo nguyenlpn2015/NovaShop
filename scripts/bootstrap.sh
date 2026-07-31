@@ -107,7 +107,8 @@ main() {
 
   server_minor="$(
     "${KUBECTL[@]}" get --raw=/version \
-      | sed -n 's/.*"minor":"\([0-9][0-9]*\).*/\1/p'
+      | sed -n \
+          's/.*"minor"[[:space:]]*:[[:space:]]*"\([0-9][0-9]*\).*/\1/p'
   )"
   [[ -n "${server_minor}" ]] || die "Unable to determine Kubernetes version."
   (( server_minor >= MINIMUM_KUBERNETES_MINOR )) \

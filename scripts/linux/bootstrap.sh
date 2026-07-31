@@ -98,7 +98,8 @@ main() {
   verify_remote_repository 'https://github.com/nguyenlpn2015/NovaShop.git'
   verify_remote_repository 'https://github.com/nguyenlpn2015/NovaShop-GitOps.git'
 
-  NODE_IP="${NODE_IP}" bash "${SCRIPT_DIR}/install-k3s.sh"
+  export NODE_IP
+  bash "${SCRIPT_DIR}/install-k3s.sh"
   bash "${SCRIPT_DIR}/install-helm.sh"
 
   export KUBECONFIG
