@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/name: novashop-root
     app.kubernetes.io/component: gitops
     app.kubernetes.io/part-of: novashop
+    novashop.io/deployment-target: ubuntu-k3s
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   finalizers:
@@ -16,7 +17,7 @@ spec:
   source:
     repoURL: https://github.com/nguyenlpn2015/NovaShop-GitOps.git
     targetRevision: main
-    path: clusters/in-cluster
+    path: clusters/ubuntu-k3s
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -32,9 +33,9 @@ spec:
       - PrunePropagationPolicy=foreground
       - RespectIgnoreDifferences=true
     retry:
-      limit: 5
+      limit: 10
       backoff:
-        duration: 5s
+        duration: 10s
         factor: 2
-        maxDuration: 3m
+        maxDuration: 5m
   revisionHistoryLimit: 10

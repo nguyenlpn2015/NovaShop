@@ -1,0 +1,80 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-development-tls
+  namespace: novashop-development
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+    novashop.io/environment: development
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  secretName: novashop-development-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - dev.novashop.smartdev.vn
+    - api.dev.novashop.smartdev.vn
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-staging-tls
+  namespace: novashop-staging
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+    novashop.io/environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  secretName: novashop-staging-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - staging.novashop.smartdev.vn
+    - api.staging.novashop.smartdev.vn
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-production-tls
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+    novashop.io/environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  secretName: novashop-production-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - novashop.smartdev.vn
+    - api.novashop.smartdev.vn

@@ -1,8 +1,9 @@
+# Reconciled only by the Ubuntu k3s GitOps overlay.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: novashop-redirect
-  namespace: novashop
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
     app.kubernetes.io/component: edge
@@ -16,7 +17,7 @@ apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: novashop-security-headers
-  namespace: novashop
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
     app.kubernetes.io/component: edge
@@ -36,7 +37,7 @@ apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: novashop-compress
-  namespace: novashop
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
     app.kubernetes.io/component: edge
@@ -48,7 +49,7 @@ apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: novashop-secure-chain
-  namespace: novashop
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
     app.kubernetes.io/component: edge
@@ -62,21 +63,20 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: novashop-http
-  namespace: novashop
+  name: novashop-public-http
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
-    app.kubernetes.io/instance: novashop
+    app.kubernetes.io/instance: novashop-development
     app.kubernetes.io/component: ingress
     app.kubernetes.io/part-of: novashop
-    app.kubernetes.io/managed-by: kubectl
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
-    traefik.ingress.kubernetes.io/router.middlewares: novashop-novashop-redirect@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: novashop-development-novashop-redirect@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
-    - host: novashop.smartdev.vn
+    - host: dev.novashop.smartdev.vn
       http:
         paths:
           - path: /
@@ -86,7 +86,7 @@ spec:
                 name: novashop-frontend
                 port:
                   name: http
-    - host: api.novashop.smartdev.vn
+    - host: api.dev.novashop.smartdev.vn
       http:
         paths:
           - path: /
@@ -100,27 +100,26 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: novashop-https
-  namespace: novashop
+  name: novashop-public-https
+  namespace: novashop-development
   labels:
     app.kubernetes.io/name: novashop
-    app.kubernetes.io/instance: novashop
+    app.kubernetes.io/instance: novashop-development
     app.kubernetes.io/component: ingress
     app.kubernetes.io/part-of: novashop
-    app.kubernetes.io/managed-by: kubectl
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.middlewares: novashop-novashop-secure-chain@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: novashop-development-novashop-secure-chain@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - novashop.smartdev.vn
-        - api.novashop.smartdev.vn
-      secretName: novashop-tls
+        - dev.novashop.smartdev.vn
+        - api.dev.novashop.smartdev.vn
+      secretName: novashop-development-tls
   rules:
-    - host: novashop.smartdev.vn
+    - host: dev.novashop.smartdev.vn
       http:
         paths:
           - path: /
@@ -130,7 +129,7 @@ spec:
                 name: novashop-frontend
                 port:
                   name: http
-    - host: api.novashop.smartdev.vn
+    - host: api.dev.novashop.smartdev.vn
       http:
         paths:
           - path: /

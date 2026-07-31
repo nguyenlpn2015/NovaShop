@@ -12,6 +12,9 @@ readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-10m}"
 readonly WAIT_SECONDS="${WAIT_SECONDS:-600}"
 readonly MINIMUM_KUBERNETES_MINOR=33
 readonly ENVIRONMENTS=(development staging production)
+ARGOCD_APPLICATION_MANIFEST="${ARGOCD_APPLICATION_MANIFEST:-${REPO_ROOT}/argocd/application.yaml}"
+readonly ARGOCD_APPLICATION_MANIFEST
+readonly ENABLE_PUBLIC_EDGE_VALIDATION="${ENABLE_PUBLIC_EDGE_VALIDATION:-false}"
 
 KUBECTL=(kubectl)
 if [[ -n "${KUBE_CONTEXT:-}" ]]; then
@@ -102,6 +105,9 @@ main() {
   require_command sed
   require_command sleep
 
+  [[ -r "${ARGOCD_APPLICATION_MANIFEST}" ]] \
+    || die "Argo CD Application manifest is not readable: ${ARGOCD_APPLICATION_MANIFEST}"
+
   "${KUBECTL[@]}" cluster-info >/dev/null
   log "Using Kubernetes context: $("${KUBECTL[@]}" config current-context)"
 
@@ -121,7 +127,7 @@ main() {
     --server-side \
     --field-manager=novashop-bootstrap \
     -f "${REPO_ROOT}/argocd/project.yaml" \
-    -f "${REPO_ROOT}/argocd/application.yaml"
+    -f "${ARGOCD_APPLICATION_MANIFEST}"
 
   wait_for_resource "applicationset/novashop" "${ARGOCD_NAMESPACE}"
 
@@ -143,6 +149,29 @@ main() {
       deployment/novashop-frontend \
       --timeout="${WAIT_TIMEOUT}"
   done
+
+  if [[ "${ENABLE_PUBLIC_EDGE_VALIDATION}" == "true" ]]; then
+    wait_for_resource \
+      "application/novashop-cert-manager" \
+      "${ARGOCD_NAMESPACE}"
+    wait_for_resource \
+      "application/novashop-certificates" \
+      "${ARGOCD_NAMESPACE}"
+    wait_for_namespace "cert-manager"
+
+    "${KUBECTL[@]}" wait \
+      --for=condition=Ready \
+      clusterissuer/letsencrypt-production \
+      --timeout="${WAIT_TIMEOUT}"
+
+    for environment in "${ENVIRONMENTS[@]}"; do
+      "${KUBECTL[@]}" wait \
+        --namespace "novashop-${environment}" \
+        --for=condition=Ready \
+        "certificate/novashop-${environment}-tls" \
+        --timeout="${WAIT_TIMEOUT}"
+    done
+  fi
 
   "${KUBECTL[@]}" get applications \
     --namespace "${ARGOCD_NAMESPACE}" \
