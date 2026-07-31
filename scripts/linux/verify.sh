@@ -127,9 +127,9 @@ tls_secret_is_valid() {
       --output=jsonpath='{.data.tls\.key}'
   )"
 
-  [[ "${secret_type}" == "kubernetes.io/tls" ]]
-  [[ -n "${certificate_data}" ]]
-  [[ -n "${key_data}" ]]
+  [[ "${secret_type}" == "kubernetes.io/tls" ]] \
+    && [[ -n "${certificate_data}" ]] \
+    && [[ -n "${key_data}" ]]
 }
 
 ingress_routes_hosts() {
@@ -145,8 +145,8 @@ ingress_routes_hosts() {
       --output=jsonpath='{.spec.rules[*].host}'
   )"
 
-  [[ " ${hosts} " == *" ${frontend_host} "* ]]
-  [[ " ${hosts} " == *" ${backend_host} "* ]]
+  [[ " ${hosts} " == *" ${frontend_host} "* ]] \
+    && [[ " ${hosts} " == *" ${backend_host} "* ]]
 }
 
 dns_resolves() {
@@ -160,16 +160,23 @@ http_returns_200_within_threshold() {
   local status
   local latency_seconds
 
-  result="$(
-    curl --silent \
+  if ! result="$(
+    curl --disable \
+      --silent \
       --show-error \
+      --noproxy '*' \
       --max-time "${REQUEST_TIMEOUT}" \
       --output /dev/null \
       --write-out '%{http_code} %{time_total}' \
       "http://${hostname}${path}"
-  )"
-  read -r status latency_seconds <<<"${result}"
-  [[ "${status}" == "200" ]]
+  )"; then
+    return 1
+  fi
+
+  IFS=' ' read -r status latency_seconds <<<"${result}"
+  [[ "${status}" == "200" ]] || return 1
+  [[ "${latency_seconds}" =~ ^[0-9]+([.][0-9]+)?$ ]] || return 1
+
   awk -v latency="${latency_seconds}" \
     -v maximum_ms="${MAX_HTTP_LATENCY_MS}" \
     'BEGIN { exit !((latency * 1000) < maximum_ms) }'
@@ -179,14 +186,19 @@ http_redirects() {
   local hostname="$1"
   local status
 
-  status="$(
-    curl --silent \
+  if ! status="$(
+    curl --disable \
+      --silent \
       --show-error \
+      --noproxy '*' \
       --max-time "${REQUEST_TIMEOUT}" \
       --output /dev/null \
       --write-out '%{http_code}' \
       "http://${hostname}/"
-  )"
+  )"; then
+    return 1
+  fi
+
   [[ "${status}" =~ ^30[1278]$ ]]
 }
 
@@ -199,15 +211,20 @@ https_returns_200() {
     tls_options+=(--insecure)
   fi
 
-  status="$(
-    curl --silent \
+  if ! status="$(
+    curl --disable \
+      --silent \
       --show-error \
+      --noproxy '*' \
       "${tls_options[@]}" \
       --max-time "${REQUEST_TIMEOUT}" \
       --output /dev/null \
       --write-out '%{http_code}' \
       "${url}"
-  )"
+  )"; then
+    return 1
+  fi
+
   [[ "${status}" == "200" ]]
 }
 
@@ -222,8 +239,10 @@ security_header_exists() {
     tls_options+=(--insecure)
   fi
 
-  curl --silent \
+  curl --disable \
+    --silent \
     --show-error \
+    --noproxy '*' \
     "${tls_options[@]}" \
     --max-time "${REQUEST_TIMEOUT}" \
     --head \

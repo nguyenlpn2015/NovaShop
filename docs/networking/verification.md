@@ -25,6 +25,10 @@ Every check prints `PASS` or `FAIL`. HTTP phase success ends with:
 [linux/verify] RESULT: PASS (... passed, 0 failed)
 ```
 
+The verifier disables curl proxy configuration and `.curlrc` for public edge
+requests. A DNS or connection failure therefore cannot be reported as a
+successful application response from an intermediary proxy.
+
 After the reviewed TLS GitOps phase is active, enable the additional checks:
 
 ```bash
