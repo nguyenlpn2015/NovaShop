@@ -1,8 +1,7 @@
 # Production Edge Verification
 
-Verification is deliberately phased. The default Ubuntu bootstrap validates
-HTTP without installing cert-manager. Run the TLS checks only after a reviewed
-GitOps change activates the TLS phase.
+Verification retains phase flags for rollback testing. The Ubuntu bootstrap
+exports the production TLS flags and validates the active final state.
 
 ## Automated Verification
 
@@ -11,19 +10,15 @@ export KUBECONFIG=/root/.kube/config
 export PATH="/root/.local/bin:${PATH}"
 
 cd ~/NovaShop
+TLS_PHASE_ENABLED=true \
+TLS_ISSUER_NAME=letsencrypt-production \
+TLS_PRODUCTION_ENABLED=true \
 bash scripts/linux/verify.sh
 ```
 
-The default run verifies Nodes, disk, memory, Traefik, Argo CD, Pods, Secrets,
-DNS, HTTP status, HTTP latency, Ingress, and HTTP-safe security headers. It
-must explicitly report that cert-manager installation was skipped.
-
-Every check prints `PASS` or `FAIL`. HTTP phase success ends with:
-
-```text
-[linux/verify] PASS: TLS phase is disabled; cert-manager installation is intentionally skipped
-[linux/verify] RESULT: PASS (... passed, 0 failed)
-```
+The production run verifies Nodes, disk, memory, Traefik, Argo CD, Pods,
+Secrets, DNS, HTTP redirects, trusted HTTPS, certificate expiry, Ingress, HSTS,
+and security headers. Every check prints `PASS` or `FAIL`.
 
 The verifier disables curl proxy configuration and `.curlrc` for public edge
 requests. A DNS or connection failure therefore cannot be reported as a

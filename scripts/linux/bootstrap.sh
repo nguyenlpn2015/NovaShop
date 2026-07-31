@@ -143,11 +143,14 @@ main() {
 
   log 'Bootstrapping NovaShop through the existing GitOps runtime.'
   export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
-  export EXPECTED_EDGE_SOURCE_PATH="kubernetes/ingress/http"
+  export EXPECTED_EDGE_SOURCE_PATH="kubernetes/ingress/examples"
+  export ENABLE_TLS_VALIDATION=true
+  export TLS_PHASE_ENABLED=true
+  export TLS_ISSUER_NAME=letsencrypt-production
+  export TLS_PRODUCTION_ENABLED=true
   bash "${REPO_ROOT}/scripts/bootstrap.sh"
   bash "${SCRIPT_DIR}/verify.sh"
-  log 'Deployment Target B HTTP phase is ready.'
-  log 'cert-manager and HTTPS remain disabled until the reviewed TLS GitOps phase is activated.'
+  log 'Deployment Target B production TLS phase is ready.'
 }
 
 main "$@"

@@ -184,22 +184,27 @@ http_returns_200_within_threshold() {
 
 http_redirects() {
   local hostname="$1"
+  local path="${2:-/}"
+  local result
   local status
+  local redirect_url
 
-  if ! status="$(
+  if ! result="$(
     curl --disable \
       --silent \
       --show-error \
       --noproxy '*' \
       --max-time "${REQUEST_TIMEOUT}" \
       --output /dev/null \
-      --write-out '%{http_code}' \
-      "http://${hostname}/"
+      --write-out '%{http_code} %{redirect_url}' \
+      "http://${hostname}${path}"
   )"; then
     return 1
   fi
 
-  [[ "${status}" =~ ^30[1278]$ ]]
+  IFS=' ' read -r status redirect_url <<<"${result}"
+  [[ "${status}" =~ ^30[1278]$ ]] \
+    && [[ "${redirect_url}" == "https://${hostname}${path}" ]]
 }
 
 https_returns_200() {
@@ -293,6 +298,15 @@ main() {
   local backend_host
   local header_scheme="http"
   local preflight_failures
+
+  if [[ "${TLS_PRODUCTION_ENABLED}" == "true" \
+    && "${TLS_PHASE_ENABLED}" != "true" ]]; then
+    fail "TLS_PRODUCTION_ENABLED requires TLS_PHASE_ENABLED=true"
+  fi
+  if [[ "${TLS_PRODUCTION_ENABLED}" == "true" \
+    && "${TLS_ISSUER_NAME}" != "letsencrypt-production" ]]; then
+    fail "production TLS validation requires letsencrypt-production"
+  fi
 
   for command_name in argocd awk curl df free getent grep helm kubectl systemctl; do
     run_check \
@@ -422,12 +436,21 @@ main() {
     run_check \
       "DNS resolves: ${backend_host}" \
       dns_resolves "${backend_host}"
-    run_check \
-      "frontend HTTP returns 200 in under ${MAX_HTTP_LATENCY_MS}ms: ${frontend_host}" \
-      http_returns_200_within_threshold "${frontend_host}"
-    run_check \
-      "backend health HTTP returns 200 in under ${MAX_HTTP_LATENCY_MS}ms: ${backend_host}/health" \
-      http_returns_200_within_threshold "${backend_host}" "/health"
+    if [[ "${TLS_PRODUCTION_ENABLED}" == "true" ]]; then
+      run_check \
+        "frontend HTTP redirects to HTTPS: ${frontend_host}" \
+        http_redirects "${frontend_host}"
+      run_check \
+        "backend HTTP redirects to HTTPS: ${backend_host}/health" \
+        http_redirects "${backend_host}" "/health"
+    else
+      run_check \
+        "frontend HTTP returns 200 in under ${MAX_HTTP_LATENCY_MS}ms: ${frontend_host}" \
+        http_returns_200_within_threshold "${frontend_host}"
+      run_check \
+        "backend health HTTP returns 200 in under ${MAX_HTTP_LATENCY_MS}ms: ${backend_host}/health" \
+        http_returns_200_within_threshold "${backend_host}" "/health"
+    fi
 
     if [[ "${TLS_PHASE_ENABLED}" == "true" ]]; then
       run_check \
@@ -444,11 +467,6 @@ main() {
       run_check \
         "backend health HTTPS returns 200: ${backend_host}/health" \
         https_returns_200 "https://${backend_host}/health"
-      if [[ "${TLS_PRODUCTION_ENABLED}" == "true" ]]; then
-        run_check \
-          "HTTP redirects to HTTPS: ${frontend_host}" \
-          http_redirects "${frontend_host}"
-      fi
     fi
   done
 
