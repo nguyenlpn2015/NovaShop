@@ -462,10 +462,18 @@ validate_runtime_alignment() {
     )"
 }
 
+# Helm values files live alongside the manifests they configure but are not
+# manifests: they have no apiVersion and no kind, so kubeconform rejects them.
+#
+# The exclusion matches the `-values.yaml` suffix rather than the single name
+# `helm-values.yaml`, because a chart can legitimately need more than one values
+# file. Prometheus has two — scrape configuration and alerting — split so the
+# alert rules can be reviewed on their own. Naming the second one anything at all
+# broke this gate until the pattern was generalised.
 collect_application_manifests() {
   find "${APP_DIR}/kubernetes" "${APP_DIR}/argocd" \
     -type f -name '*.yaml' \
-    ! -name 'helm-values.yaml' \
+    ! -name '*-values.yaml' \
     -print 2>/dev/null \
     | sort
 }
