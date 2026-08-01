@@ -135,6 +135,15 @@ extraScrapeConfigs: |
       - source_labels: [__meta_kubernetes_endpoint_port_name]
         action: keep
         regex: metrics
+      # Dex declares ports 5556, 5557, and 5558 but listens on none of them
+      # while no SSO connector is configured, which is the case here: the
+      # dex.config key in argocd-cm is empty. Verified on the cluster — all
+      # three ports refuse connections. Scraping it produces a target that is
+      # down permanently and by design, and a target list that is always partly
+      # red trains operators to stop reading it.
+      - source_labels: [__meta_kubernetes_service_name]
+        action: drop
+        regex: argocd-dex-server
       - source_labels: [__meta_kubernetes_service_name]
         target_label: component
       - source_labels: [__meta_kubernetes_namespace]
