@@ -11,6 +11,13 @@ spec:
   type: {{ .Values.backend.service.type }}
   selector:
     {{- include "novashop.selectorLabels" (dict "root" . "component" "backend") | nindent 4 }}
+  annotations:
+    # Collected by the platform's annotation-based scrape job. The port is the
+    # application port; /metrics is served by the same process and is not
+    # routed by any Ingress rule, so it stays inside the cluster.
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.backend.service.port | quote }}
+    prometheus.io/path: /metrics
   ports:
     - name: http
       port: {{ .Values.backend.service.port }}
