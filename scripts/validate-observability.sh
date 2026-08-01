@@ -352,12 +352,14 @@ check_alert_rules() {
 # whoever is following the link during an incident.
 check_alerts_have_runbooks() {
   local rules="${TEMPORARY_DIRECTORY}/config/alerting_rules.yml"
-  local report
+  local count_file="${TEMPORARY_DIRECTORY}/alert-count"
+  local problems
+  local ALERT_COUNT
 
   [[ -s "${rules}" ]] || return
 
-  report="$(
-    "${PYTHON}" - "${rules}" "${REPO_ROOT}" <<'PY'
+  if problems="$(
+    "${PYTHON}" - "${rules}" "${REPO_ROOT}" 2>"${count_file}" <<'PY'
 import os, sys, yaml
 
 rules_path, repository_root = sys.argv[1], sys.argv[2]
@@ -387,16 +389,19 @@ for group in document.get("groups") or []:
             if not (source or {}).get(required):
                 problems.append(f"{name}: no {required}")
 
-print(total)
-print("\n".join(problems))
+for problem in problems:
+    print(problem)
+
+# The count goes to stderr and the exit status carries the verdict. Returning it
+# on stdout and splitting in the shell does not work: command substitution
+# strips trailing newlines, so a clean run collapses to a single line and the
+# count itself gets read as the problem list.
+print(total, file=sys.stderr)
+sys.exit(1 if problems else 0)
 PY
-  )"
-
-  local total="${report%%$'\n'*}"
-  local problems="${report#*$'\n'}"
-
-  if [[ -z "${problems//[[:space:]]/}" ]]; then
-    pass "every alert carries a severity, a summary, and a runbook that exists (${total} alerts)"
+  )"; then
+    ALERT_COUNT="$(tr -d '[:space:]' <"${count_file}" 2>/dev/null || printf '?')"
+    pass "every alert carries a severity, a summary, and a runbook that exists (${ALERT_COUNT} alerts)"
   else
     fail 'every alert carries a severity, a summary, and a runbook that exists' \
       "${problems}"
