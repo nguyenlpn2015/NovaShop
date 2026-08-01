@@ -27,6 +27,8 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly REPO_ROOT
 readonly PROMETHEUS_CHART_VERSION="${PROMETHEUS_CHART_VERSION:-29.20.1}"
 readonly GRAFANA_CHART_VERSION="${GRAFANA_CHART_VERSION:-10.5.15}"
+readonly POSTGRES_EXPORTER_CHART_VERSION="${POSTGRES_EXPORTER_CHART_VERSION:-8.2.0}"
+readonly REDIS_EXPORTER_CHART_VERSION="${REDIS_EXPORTER_CHART_VERSION:-6.28.0}"
 readonly PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.2}"
 readonly OBSERVABILITY_DIR="${REPO_ROOT}/kubernetes/observability"
 readonly NAMESPACE="${OBSERVABILITY_NAMESPACE:-observability}"
@@ -145,6 +147,64 @@ render_charts() {
     fail "grafana chart ${GRAFANA_CHART_VERSION} renders" \
       "$(cat "${TEMPORARY_DIRECTORY}/grafana.err")"
   fi
+
+  render_exporter postgres "${POSTGRES_EXPORTER_CHART_VERSION}"
+  render_exporter redis "${REDIS_EXPORTER_CHART_VERSION}"
+}
+
+render_exporter() {
+  local name="$1"
+  local version="$2"
+  local values="${OBSERVABILITY_DIR}/${name}-exporter/helm-values.yaml"
+
+  [[ -f "${values}" ]] || { fail "${name}-exporter values exist" "Missing ${values}."; return; }
+
+  if helm template "novashop-${name}-exporter" \
+    "prometheus-community/prometheus-${name}-exporter" \
+    --version "${version}" \
+    --namespace "${NAMESPACE}" \
+    --values "${values}" \
+    >"${TEMPORARY_DIRECTORY}/${name}-exporter.yaml" \
+    2>"${TEMPORARY_DIRECTORY}/${name}-exporter.err"; then
+    pass "${name}-exporter chart ${version} renders"
+  else
+    fail "${name}-exporter chart ${version} renders" \
+      "$(cat "${TEMPORARY_DIRECTORY}/${name}-exporter.err")"
+  fi
+}
+
+# The exporters are collected by annotation discovery rather than by a dedicated
+# scrape job. A Service that loses the annotation keeps running and keeps
+# serving metrics that nobody reads, which is indistinguishable from a datastore
+# with nothing to report.
+check_exporters_are_discoverable() {
+  local name
+  local rendered
+  local scrape
+
+  for name in postgres redis; do
+    rendered="${TEMPORARY_DIRECTORY}/${name}-exporter.yaml"
+    [[ -s "${rendered}" ]] || continue
+
+    scrape="$(
+      "${PYTHON}" - "${rendered}" <<'PY'
+import sys, yaml
+for document in yaml.safe_load_all(open(sys.argv[1], encoding="utf-8")):
+    if not document or document.get("kind") != "Service":
+        continue
+    annotations = document["metadata"].get("annotations") or {}
+    print(annotations.get("prometheus.io/scrape", ""))
+    break
+PY
+    )"
+
+    if [[ "${scrape}" == "true" ]]; then
+      pass "${name}-exporter Service is annotated for scraping"
+    else
+      fail "${name}-exporter Service is annotated for scraping" \
+        "prometheus.io/scrape is '${scrape:-unset}'. The exporter would run and be collected by nothing."
+    fi
+  done
 }
 
 extract_prometheus_config() {
@@ -251,7 +311,9 @@ check_resources_are_bounded() {
 
   unbounded="$(
     "${PYTHON}" - "${TEMPORARY_DIRECTORY}/prometheus.yaml" \
-      "${TEMPORARY_DIRECTORY}/grafana.yaml" <<'PY'
+      "${TEMPORARY_DIRECTORY}/grafana.yaml" \
+      "${TEMPORARY_DIRECTORY}/postgres-exporter.yaml" \
+      "${TEMPORARY_DIRECTORY}/redis-exporter.yaml" <<'PY'
 import sys, yaml
 
 offenders = []
@@ -301,6 +363,7 @@ main() {
     check_required_jobs
     check_traefik_uses_pod_discovery
   fi
+  check_exporters_are_discoverable
   check_resources_are_bounded
 
   if (( FAIL_COUNT > 0 )); then

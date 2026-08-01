@@ -127,12 +127,46 @@ observability, because the platform AppProject it depends on is defined in
 `tls-baseline`. Monitoring is most valuable during an incident, so moving both
 into the base phase is a worthwhile follow-up.
 
+## Datastore exporters (Phase 3)
+
+PostgreSQL and Redis run on the node, not in the cluster. Phase 1 made them
+reachable from the pod network, so both exporters run in-cluster under Argo CD
+rather than as systemd units on the host, which removes host configuration drift
+from the design.
+
+| Exporter | Chart | Credential |
+|---|---|---|
+| postgres_exporter | `prometheus-postgres-exporter` 8.2.0 | `novashop_exporter` role, `pg_monitor` only |
+| redis_exporter | `prometheus-redis-exporter` 6.28.0 | `requirepass`, no ACL user available |
+
+The PostgreSQL exporter uses a dedicated role rather than the application
+credential, so a metrics collector has no write access to production data.
+Verified against the running database:
+
+```text
+exporter   stats=5 rows   write=denied(InsufficientPrivilegeError)
+app        stats=5 rows   write=ALLOWED
+```
+
+Granting `pg_monitor` alone was **not** sufficient. PostgreSQL 14 grants `CREATE`
+on schema `public` to `PUBLIC`, so any role that can connect can create objects;
+PostgreSQL 15 removed that default. `CREATE` was revoked from `PUBLIC` and
+granted back to the application role only.
+
+Redis 6.0 here has no ACL users, so the exporter authenticates with the same
+`requirepass` value the application uses. Redis offers no per-source
+authorisation and no read-only role short of ACLs, so there is no least-privilege
+credential to grant. An ACL user limited to `+info` and `+client|list` is a
+worthwhile follow-up.
+
+Both exporters are collected by annotation discovery rather than a dedicated
+scrape job, and `validate-observability.sh` asserts the annotation is present —
+a Service that loses it keeps serving metrics nobody reads.
+
 ## What is still missing after this phase
 
 | Gap | Arrives in |
 |---|---|
-| PostgreSQL metrics | Phase 3 |
-| Redis metrics | Phase 3 |
 | Application metrics (`/metrics` returns 404 today) | Phase 6 |
 | kube-scheduler, kube-controller-manager, kube-proxy | Phase 4, needs a k3s flag change and an ADR |
 | Logs | Phase 5 |
