@@ -104,23 +104,38 @@ alloy:
       // ---------------------------------------------------------------
       // System logs from the node journal.
       // ---------------------------------------------------------------
-      loki.source.journal "system" {
-        max_age    = "12h"
-        path       = "/var/log/journal"
-        forward_to = [loki.process.system.receiver]
-        labels     = {
-          source  = "journal",
-          cluster = "novashop-k3s",
+      // Journal fields arrive as internal labels prefixed __journal_, and
+      // internal labels are dropped unless a relabel rule promotes them.
+      // loki.process's stage.labels cannot do this: it promotes values from the
+      // extracted map, which earlier stages populate and which is empty here.
+      // An earlier revision used stage.labels and produced journal streams with
+      // no unit label at all, so filtering by systemd unit was impossible.
+      discovery.relabel "journal" {
+        targets = []
+
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          target_label  = "unit"
+        }
+        rule {
+          source_labels = ["__journal__hostname"]
+          target_label  = "node"
+        }
+        rule {
+          source_labels = ["__journal_priority_keyword"]
+          target_label  = "level"
         }
       }
 
-      loki.process "system" {
-        stage.labels {
-          values = {
-            unit = "__journal__systemd_unit",
-          }
+      loki.source.journal "system" {
+        max_age       = "12h"
+        path          = "/var/log/journal"
+        relabel_rules = discovery.relabel.journal.rules
+        forward_to    = [loki.write.default.receiver]
+        labels        = {
+          source  = "journal",
+          cluster = "novashop-k3s",
         }
-        forward_to = [loki.write.default.receiver]
       }
 
       // ---------------------------------------------------------------
