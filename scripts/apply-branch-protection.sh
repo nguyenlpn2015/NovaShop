@@ -82,7 +82,7 @@ discover_reported_checks() {
     gh api \
       "repos/${REPOSITORY}/commits?sha=${default_branch}&per_page=${CHECK_DISCOVERY_LIMIT}" \
       --jq '.[].sha'
-  ) | sort --unique
+  ) | tr -d '\r' | sort --unique
 }
 
 verify_required_checks() {
@@ -91,12 +91,16 @@ verify_required_checks() {
   local context
   local missing=0
 
+  # Both lists are stripped of carriage returns before comparison. A Windows
+  # build of jq terminates lines with CRLF while `gh api --jq` emits LF, so an
+  # unstripped comparison reports every context as never reported and refuses
+  # to apply a ruleset that is in fact correct.
   required="$(
     jq -r '
       .rules[]
       | select(.type == "required_status_checks")
       | .parameters.required_status_checks[].context
-    ' "${RULESET_FILE}"
+    ' "${RULESET_FILE}" | tr -d '\r'
   )"
 
   if [[ -z "${required}" ]]; then
