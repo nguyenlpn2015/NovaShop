@@ -39,6 +39,16 @@ securityContext:
   runAsGroup: 472
   fsGroup: 472
 
+# The chart's init container chowns the data volume, which requires root. The
+# pod security context above forbids that, so the init container failed with
+# "chown: /var/lib/grafana/csv: Permission denied" and the pod crash-looped.
+#
+# fsGroup already makes the kubelet set group ownership on the volume at mount
+# time, so the chown is redundant. Disabling it is the more secure fix: no
+# container in this pod runs as root at any point.
+initChownData:
+  enabled: false
+
 service:
   type: ClusterIP
 
