@@ -14,6 +14,33 @@
 alertmanager:
   enabled: true
 
+  # Set to a non-zero value so the field survives a round trip through the API.
+  #
+  # The chart templates minReadySeconds unconditionally. Zero is the API default
+  # for it, so the API server stores nothing and reads it back absent, and Argo CD
+  # compares a desired field against a live object that does not have it. The
+  # Application sat OutOfSync permanently: sync reported Succeeded, self-heal
+  # reapplied on schedule, and the difference survived every attempt.
+  #
+  # ignoreDifferences was tried first and does not work. Its normalizer removes
+  # the path from the live state, where the path is already absent, so it is a
+  # no-op; the target keeps the field. Measured directly through the Argo CD API:
+  #
+  #   targetState          spec.minReadySeconds = 0
+  #   normalizedLiveState  spec.minReadySeconds = <absent>
+  #   predictedLiveState   spec.minReadySeconds = <absent>
+  #
+  # predictedLiveState is a server-side apply dry-run, so not even applying the
+  # target produces the field. A "present in target, absent in live" difference
+  # cannot be normalised away with jsonPointers.
+  #
+  # Five seconds is chosen because it round-trips, not because the platform needs
+  # it. Alertmanager runs a single replica under OrderedReady, so there is no
+  # rolling update for minReadySeconds to pace and the practical effect is that a
+  # restarted pod counts as available five seconds later. That is the honest
+  # description: a value picked to make the field persist, at no operational cost.
+  minReadySeconds: 5
+
   persistence:
     enabled: true
     size: 256Mi
