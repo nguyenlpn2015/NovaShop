@@ -1,0 +1,309 @@
+# Alerting for the NovaShop platform.
+#
+# Kept in a second values file so the alert rules can be reviewed on their own,
+# separately from the scrape configuration. The Argo CD Application lists both.
+#
+# Every expression below was written against a metric name verified to exist on
+# this cluster. An alert built on a metric that is absent never fires and never
+# errors, which is the worst possible failure for an alert: it reports safety it
+# cannot observe.
+#
+# Every alert carries a runbook_url. An alert that fires at 03:00 with no stated
+# response is a page, not a signal.
+
+alertmanager:
+  enabled: true
+
+  persistence:
+    enabled: true
+    size: 256Mi
+    storageClass: local-path
+
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9093"
+      prometheus.io/path: /metrics
+
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      # Grouping by alertname and environment means one notification for a fault
+      # that hits three replicas, rather than three.
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      # Twelve hours between repeats. Anything shorter trains people to mute the
+      # channel, which is worse than not alerting at all.
+      repeat_interval: 12h
+      receiver: default
+
+    receivers:
+      # No destination is configured. Delivering to Slack, email, or PagerDuty
+      # needs a credential this repository does not hold and a decision about
+      # who is on call, neither of which belongs in an unreviewed default.
+      #
+      # Alerts remain visible and queryable in the Alertmanager UI and in
+      # ALERTS{} in Prometheus, so the rules are useful before routing exists.
+      # Adding a receiver is a values change plus a Secret; see
+      # docs/observability/alerts.md.
+      - name: default
+
+    inhibit_rules:
+      # A node that is down will also breach CPU, memory, and disk thresholds.
+      # Reporting all four turns one fault into four pages.
+      - source_matchers: ["severity = critical"]
+        target_matchers: ["severity = warning"]
+        equal: ["alertname", "instance"]
+      - source_matchers: ["alertname = NodeDown"]
+        target_matchers: ["severity =~ warning|critical"]
+        equal: ["instance"]
+
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: novashop-node
+        rules:
+          - alert: NodeDown
+            expr: up{job="kubernetes-nodes"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node {{ $labels.instance }} is not reporting"
+              description: >-
+                The kubelet has not answered a scrape for two minutes. Workloads
+                on this node may still be serving; the cluster cannot tell.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/node-down.md
+
+          - alert: DiskFull
+            expr: >-
+              node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+              / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} < 0.15
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Root filesystem below 15% free on {{ $labels.instance }}"
+              description: >-
+                {{ $value | humanizePercentage }} free. This node hosts
+                PostgreSQL, Loki, and Prometheus on the same volume, so a full
+                disk stops the database as well as observability.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/disk-full.md
+
+          - alert: MemoryHigh
+            expr: >-
+              1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.85
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Memory above 85% on {{ $labels.instance }}"
+              description: >-
+                {{ $value | humanizePercentage }} of memory is in use. Container
+                memory limits on this node are already committed beyond
+                allocatable, so the kernel will start killing containers.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/memory-high.md
+
+          - alert: CPUHigh
+            expr: >-
+              1 - avg by (instance) (
+                rate(node_cpu_seconds_total{mode="idle"}[5m])
+              ) > 0.85
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "CPU above 85% on {{ $labels.instance }}"
+              description: "{{ $value | humanizePercentage }} of CPU is busy over the last five minutes."
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/cpu-high.md
+
+      - name: novashop-workloads
+        rules:
+          - alert: PodCrashLooping
+            expr: >-
+              increase(kube_pod_container_status_restarts_total[15m]) > 3
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.namespace }}/{{ $labels.pod }} is restarting repeatedly"
+              description: >-
+                Container {{ $labels.container }} restarted more than three
+                times in fifteen minutes.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/pod-crashlooping.md
+
+          - alert: DeploymentFailed
+            expr: >-
+              kube_deployment_status_replicas_available
+              < kube_deployment_spec_replicas
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.namespace }}/{{ $labels.deployment }} has unavailable replicas"
+              description: >-
+                Fewer replicas are available than desired for ten minutes. A
+                rollout is stuck or pods cannot become ready.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/deployment-failed.md
+
+          - alert: ArgoSyncFailed
+            expr: >-
+              argocd_app_info{sync_status!="Synced"} == 1
+            for: 30m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Argo CD application {{ $labels.name }} is {{ $labels.sync_status }}"
+              description: >-
+                The cluster has not matched Git for thirty minutes. Automatic
+                sync and self-heal are enabled, so persistence means the sync is
+                failing rather than merely pending.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/argo-sync-failed.md
+
+      - name: novashop-datastores
+        rules:
+          - alert: DatabaseDown
+            expr: pg_up == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "PostgreSQL is unreachable from the cluster"
+              description: >-
+                The exporter cannot connect. PostgreSQL runs on the node and is
+                reached over the pod network, so this covers the database being
+                down and the network path being broken.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/database-down.md
+
+          - alert: RedisDown
+            expr: redis_up == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Redis is unreachable from the cluster"
+              description: "The exporter cannot connect or authenticate to Redis."
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/redis-down.md
+
+      - name: novashop-certificates
+        rules:
+          - alert: CertificateExpiring
+            expr: >-
+              (certmanager_certificate_expiration_timestamp_seconds - time())
+              / 86400 < 21
+            for: 1h
+            labels:
+              severity: critical
+            annotations:
+              summary: "Certificate {{ $labels.name }} expires in {{ $value | printf \"%.0f\" }} days"
+              description: >-
+                cert-manager renews at roughly two thirds of a 90 day lifetime,
+                so a certificate should never fall below 30 days. Below 21 means
+                renewal is already failing.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/certificate-expiring.md
+
+      - name: novashop-edge
+        # Traefik is currently collected by two jobs at once: the dedicated
+        # `traefik` job declared in helm-values.yaml, and the chart's default
+        # annotation-based `kubernetes-pods` job, because the Traefik pod
+        # carries prometheus.io annotations of its own. Both scrape the same
+        # pod on 9100, so every Traefik series exists twice under a different
+        # job label.
+        #
+        # A ratio is unharmed by that — numerator and denominator double
+        # together — but an unqualified sum is not obviously correct to a
+        # reader, and histogram_quantile over doubled buckets only happens to
+        # be right. Both rules below therefore pin job="traefik" rather than
+        # relying on the arithmetic working out.
+        #
+        # Removing the duplicate means overriding a chart default scrape job,
+        # which is a change to the scrape configuration rather than to
+        # alerting. It is deferred to Phase 4, which reworks that file anyway.
+        rules:
+          - alert: IngressErrors
+            expr: >-
+              sum by (service) (
+                rate(traefik_service_requests_total{job="traefik",code=~"5.."}[10m])
+              )
+              / sum by (service) (
+                rate(traefik_service_requests_total{job="traefik"}[10m])
+              )
+              > 0.05
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Edge is returning 5xx for {{ $labels.service }}"
+              description: "{{ $value | humanizePercentage }} of requests failed at the edge over ten minutes."
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/ingress-errors.md
+
+          - alert: HighLatency
+            expr: >-
+              histogram_quantile(
+                0.95,
+                sum by (service, le) (
+                  rate(traefik_service_request_duration_seconds_bucket{job="traefik"}[10m])
+                )
+              ) > 1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "p95 latency above one second for {{ $labels.service }}"
+              description: "{{ $value | printf \"%.2f\" }}s at the 95th percentile over ten minutes."
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/high-latency.md
+
+      - name: novashop-application
+        rules:
+          # This is the only rule whose metric does not exist yet on the
+          # cluster: the scrape port correction has been merged but not yet
+          # deployed. An absent metric makes the expression return no series,
+          # so the alert stays inactive rather than firing or erroring.
+          - alert: ApplicationErrorRate
+            expr: >-
+              sum by (namespace) (
+                rate(novashop_http_requests_total{status=~"5.."}[10m])
+              )
+              / sum by (namespace) (rate(novashop_http_requests_total[10m]))
+              > 0.05
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Backend 5xx rate above 5% in {{ $labels.namespace }}"
+              description: >-
+                {{ $value | humanizePercentage }} of requests returned 5xx as
+                measured inside the application, which distinguishes an
+                application fault from an edge or network fault.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/application-error-rate.md
+
+      - name: novashop-observability
+        rules:
+          # Observability that runs out of disk stops reporting, and stops
+          # reporting that it stopped. This alert guards the guard.
+          - alert: ObservabilityVolumeFilling
+            expr: >-
+              kubelet_volume_stats_available_bytes{namespace="observability"}
+              / kubelet_volume_stats_capacity_bytes{namespace="observability"}
+              < 0.20
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Observability volume {{ $labels.persistentvolumeclaim }} below 20% free"
+              description: >-
+                {{ $value | humanizePercentage }} free. Prometheus and Loki both
+                enforce retention, so sustained growth means retention is not
+                keeping up with ingest.
+              runbook_url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/observability/runbooks/observability-volume-filling.md

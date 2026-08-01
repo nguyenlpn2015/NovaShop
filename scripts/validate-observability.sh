@@ -129,10 +129,14 @@ render_charts() {
   helm repo add grafana https://grafana.github.io/helm-charts >/dev/null 2>&1 || true
   helm repo update >/dev/null 2>&1 || true
 
+  # Both values files, in the same order the Argo CD Application lists them. A
+  # gate that renders only the first would validate a configuration the cluster
+  # never runs.
   if helm template novashop-prometheus prometheus-community/prometheus \
     --version "${PROMETHEUS_CHART_VERSION}" \
     --namespace "${NAMESPACE}" \
     --values "${OBSERVABILITY_DIR}/prometheus/helm-values.yaml" \
+    --values "${OBSERVABILITY_DIR}/prometheus/alerting-values.yaml" \
     >"${TEMPORARY_DIRECTORY}/prometheus.yaml" 2>"${TEMPORARY_DIRECTORY}/prometheus.err"; then
     pass "prometheus chart ${PROMETHEUS_CHART_VERSION} renders"
   else
@@ -316,6 +320,94 @@ check_prometheus_config() {
   fi
 }
 
+# An alert rule that does not parse is not a broken alert, it is an absent one:
+# Prometheus refuses the whole rule file and every alert in it stops evaluating.
+# The remaining rules keep looking correct in Git while nothing watches the
+# platform, so this is checked before merge rather than discovered afterwards.
+check_alert_rules() {
+  local rules="${TEMPORARY_DIRECTORY}/config/alerting_rules.yml"
+  local output
+
+  if [[ ! -s "${rules}" ]]; then
+    fail 'rendered output contains an alerting_rules.yml ConfigMap' \
+      'Alertmanager would run with nothing to send.'
+    return
+  fi
+
+  if output="$(
+    docker_run run --rm --entrypoint promtool \
+      --volume "$(host_path "${TEMPORARY_DIRECTORY}/config"):/etc/config:ro" \
+      "${PROMETHEUS_IMAGE}" check rules /etc/config/alerting_rules.yml 2>&1
+  )"; then
+    pass 'promtool accepts the generated alert rules'
+  else
+    fail 'promtool accepts the generated alert rules' "${output}"
+  fi
+}
+
+# Two properties that promtool does not check, because neither is a syntax
+# question: that every alert names a runbook, and that the runbook it names is a
+# file that exists in this repository. A runbook_url pointing at a document
+# nobody wrote is worse than none at all, because it is only discovered by
+# whoever is following the link during an incident.
+check_alerts_have_runbooks() {
+  local rules="${TEMPORARY_DIRECTORY}/config/alerting_rules.yml"
+  local count_file="${TEMPORARY_DIRECTORY}/alert-count"
+  local problems
+  local ALERT_COUNT
+
+  [[ -s "${rules}" ]] || return
+
+  if problems="$(
+    "${PYTHON}" - "${rules}" "${REPO_ROOT}" 2>"${count_file}" <<'PY'
+import os, sys, yaml
+
+rules_path, repository_root = sys.argv[1], sys.argv[2]
+prefix = "https://github.com/nguyenlpn2015/NovaShop/blob/main/"
+
+document = yaml.safe_load(open(rules_path, encoding="utf-8")) or {}
+problems, total = [], 0
+
+for group in document.get("groups") or []:
+    for rule in group.get("rules") or []:
+        name = rule.get("alert")
+        if not name:
+            continue
+        total += 1
+        url = (rule.get("annotations") or {}).get("runbook_url")
+        if not url:
+            problems.append(f"{name}: no runbook_url")
+            continue
+        if not url.startswith(prefix):
+            problems.append(f"{name}: runbook_url is not a link into this repository")
+            continue
+        relative = url[len(prefix):]
+        if not os.path.isfile(os.path.join(repository_root, relative)):
+            problems.append(f"{name}: runbook_url points at a missing file: {relative}")
+        for required in ("summary", "severity"):
+            source = rule.get("annotations") if required == "summary" else rule.get("labels")
+            if not (source or {}).get(required):
+                problems.append(f"{name}: no {required}")
+
+for problem in problems:
+    print(problem)
+
+# The count goes to stderr and the exit status carries the verdict. Returning it
+# on stdout and splitting in the shell does not work: command substitution
+# strips trailing newlines, so a clean run collapses to a single line and the
+# count itself gets read as the problem list.
+print(total, file=sys.stderr)
+sys.exit(1 if problems else 0)
+PY
+  )"; then
+    ALERT_COUNT="$(tr -d '[:space:]' <"${count_file}" 2>/dev/null || printf '?')"
+    pass "every alert carries a severity, a summary, and a runbook that exists (${ALERT_COUNT} alerts)"
+  else
+    fail 'every alert carries a severity, a summary, and a runbook that exists' \
+      "${problems}"
+  fi
+}
+
 check_required_jobs() {
   local configuration="${TEMPORARY_DIRECTORY}/config/prometheus.yml"
   local job
@@ -495,6 +587,8 @@ main() {
   render_charts || true
   if [[ -s "${TEMPORARY_DIRECTORY}/prometheus.yaml" ]]; then
     check_prometheus_config
+    check_alert_rules
+    check_alerts_have_runbooks
     check_required_jobs
     check_traefik_uses_pod_discovery
   fi
