@@ -31,15 +31,20 @@ backend:
     maxUnavailable: 0
   probes:
     liveness:
-      # TODO: Change to /live when the dedicated endpoint is available.
-      path: /health
+      # Reports only that the process can serve. It must never consult a
+      # datastore: a failing liveness probe restarts the container, and a
+      # restart cannot fix a datastore outage.
+      path: /live
       initialDelaySeconds: 10
       periodSeconds: 10
       timeoutSeconds: 3
       failureThreshold: 3
     readiness:
-      # TODO: Change to /ready when dependency-aware readiness is available.
-      path: /health
+      # Verifies PostgreSQL and Redis on every call. Failing removes the replica
+      # from the Service endpoints without restarting it. The endpoint bounds
+      # each check at 2s, inside the 3s probe timeout, so an unreachable
+      # dependency is reported rather than timing the probe out.
+      path: /ready
       initialDelaySeconds: 5
       periodSeconds: 5
       timeoutSeconds: 3
