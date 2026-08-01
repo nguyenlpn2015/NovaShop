@@ -18,6 +18,10 @@ class Settings(BaseSettings):
         "postgresql://novashop:novashop@postgres:5432/novashop"
     )
     redis_url: RedisDsn = RedisDsn("redis://redis:6379/0")
+    # Readiness probes are the only current consumer, so the pool stays small.
+    # Three replicas per environment must not exhaust the server's connection
+    # slots just by being probed.
+    database_pool_max_size: int = 2
 
 
 @lru_cache
