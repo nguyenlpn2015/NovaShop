@@ -1,35 +1,123 @@
 # Documentation
 
-This directory contains the shared platform documentation and the two
-official deployment paths.
+## Start here
 
-## Platform Delivery
+| If you want to… | Read |
+|---|---|
+| Understand what this is | [Architecture Overview](architecture/overview.md) |
+| See why each technology was chosen | [Architecture Decision Records](../adr/) |
+| Run it on your machine | [Local Development](operations/local-development.md) |
+| Deploy it on a real node | [Production Deployment](operations/production-deployment.md) |
+| Fix something that is broken | [Troubleshooting](operations/troubleshooting.md) |
+| Respond to an alert | [Runbooks](observability/runbooks/) |
+| Judge the engineering | [Repository Audit](AUDIT.md) |
 
-- [GitOps Architecture](GITOPS_ARCHITECTURE.md)
-- [Platform Guardrails](PLATFORM_GUARDRAILS.md)
-- [Guardrail Validation Checklist](guardrails/validation-checklist.md)
-- [Disaster Recovery](recovery/disaster-recovery.md)
+## Architecture
+
+Twelve views, each answering a question the others cannot. Reading order in
+[architecture/README.md](architecture/README.md).
+
+| | |
+|---|---|
+| [Overview](architecture/overview.md) | [Deployment](architecture/deployment.md) |
+| [System Context](architecture/c4-system-context.md) | [GitOps Flow](architecture/gitops-flow.md) |
+| [Container Diagram](architecture/c4-container.md) | [CI/CD Flow](architecture/cicd-flow.md) |
+| [Bootstrap Flow](architecture/bootstrap-flow.md) | [Recovery Flow](architecture/recovery-flow.md) |
+| [Observability Flow](architecture/observability-flow.md) | [Networking](architecture/networking.md) |
+| [DNS](architecture/dns.md) | [TLS Flow](architecture/tls-flow.md) |
+
+Supplementary diagrams predating this set are in [../diagrams/](../diagrams/).
+
+## Operations
+
+Index in [operations/README.md](operations/README.md).
+
+| Guide | Use when |
+|---|---|
+| [Local Development](operations/local-development.md) | Changing the application |
+| [Production Deployment](operations/production-deployment.md) | Building the platform on a node |
+| [Observability](operations/observability-guide.md) | Reading metrics, logs, and alerts |
+| [Troubleshooting](operations/troubleshooting.md) | Something is wrong, cause unknown |
+| [Platform Upgrade](operations/platform-upgrade.md) | Moving k3s, Argo CD, or a chart |
+| [Disaster Recovery](recovery/disaster-recovery.md) | The node is gone |
+
+### Task reference
+
+- [Day-2 operations](OPERATIONS.md) — deploy, update, rollback, scale, sync, back up
+- [Node operations](deployment/operations.md) — k3s, Helm, and Argo CD upgrades; credential rotation
+- [Verification checklist](VERIFICATION_CHECKLIST.md)
+- [Deployment guide](DEPLOYMENT_GUIDE.md) — cluster install walkthrough
+
+## Platform delivery
+
+- [GitOps architecture](GITOPS_ARCHITECTURE.md)
+- [Platform guardrails](PLATFORM_GUARDRAILS.md) — what CI proves before a merge
+- [Guardrail validation checklist](guardrails/validation-checklist.md) — Sprint 5.0 evidence
 - [Guardrail, bootstrap, release, recovery, and GitOps flows](../diagrams/PLATFORM_GUARDRAILS.md)
-- [ADR 001: Platform Guardrails](../adr/001-platform-guardrails.md)
+- [ADR 001: Platform guardrails](../adr/001-platform-guardrails.md)
 
-### Deployment Target A: Docker Desktop Kubernetes
+## Observability
 
-- [Docker Desktop Deployment](DOCKER_DESKTOP_DEPLOYMENT.md)
-- [Docker Desktop Validation](DOCKER_DESKTOP_VALIDATION.md)
-- [Docker Desktop Troubleshooting](DOCKER_DESKTOP_TROUBLESHOOTING.md)
-- [Portfolio Evidence](PORTFOLIO_EVIDENCE.md)
+- [Architecture](observability/architecture.md) — components and versions
+- [Alerts](observability/alerts.md) — all 14 rules, thresholds, and rationale
+- [Runbooks](observability/runbooks/) — one per alert
+- [Observability Guide](operations/observability-guide.md) — daily use
 
-### Deployment Target B: Ubuntu Server and k3s
+## Networking, DNS, and TLS
 
-- [Ubuntu and k3s Deployment](deployment/ubuntu-k3s.md)
-- [Bootstrap Sequence](deployment/bootstrap-sequence.md)
-- [Operations](deployment/operations.md)
+- [Public access](networking/public-access.md) — end to end
+- [Cloudflare](networking/cloudflare.md) — DNS records
+- [FortiGate](networking/fortigate.md) — NAT policy
+- [Traefik](networking/traefik.md) — ingress configuration
+- [SSL renewal](networking/ssl-renewal.md)
+- [Verification](networking/verification.md)
+- [TLS](security/tls.md)
+
+## Security
+
+- [Hardening](security/hardening.md) — including open items
+- [ADR 010: Secret management](../adr/010-secret-management.md)
+- [SECURITY.md](../SECURITY.md) — disclosure policy
+
+## Deployment environments
+
+**Ubuntu Server + k3s** is the live target. Everything above describes it.
+
+- [Ubuntu and k3s deployment](deployment/ubuntu-k3s.md) — server preparation
+- [Bootstrap sequence](deployment/bootstrap-sequence.md)
 - [Validation](deployment/validation.md)
-- [Lab Environment](deployment/lab-environment.md)
-- [Portfolio Evidence](deployment/portfolio-evidence.md)
+- [Lab environment](deployment/lab-environment.md)
+- [Portfolio evidence](deployment/portfolio-evidence.md)
 
-### Shared GitOps Operations
+**Docker Desktop** is for local development only. It is not wired into CI or GitOps, and it
+does not run Argo CD, cert-manager, TLS, or observability. Prefer the
+[Local Development Guide](operations/local-development.md); these remain for the Kubernetes
+variant.
 
-- [Deployment Guide](DEPLOYMENT_GUIDE.md)
-- [Operations](OPERATIONS.md)
-- [Runtime Verification Checklist](VERIFICATION_CHECKLIST.md)
+- [Docker Desktop deployment](DOCKER_DESKTOP_DEPLOYMENT.md)
+- [Docker Desktop validation](DOCKER_DESKTOP_VALIDATION.md)
+- [Docker Desktop troubleshooting](DOCKER_DESKTOP_TROUBLESHOOTING.md)
+- [Portfolio evidence](PORTFOLIO_EVIDENCE.md)
+
+## Project
+
+- [Repository audit](AUDIT.md) — maturity scores and the road to v1.0
+- [Roadmap](ROADMAP.md)
+- [Engineering principles](ENGINEERING_PRINCIPLES.md)
+- [Project charter](PROJECT_CHARTER.md)
+- [Glossary](PROJECT_GLOSSARY.md)
+- [Sprint records](SPRINTS/)
+- [Learning log](LEARNING_LOG.md)
+- [Support](SUPPORT.md)
+
+## Conventions
+
+**Version numbers are the versions deployed**, not the versions intended. Where a component
+is in scope but absent, the document says so — see
+[ADR 011](../adr/011-distributed-tracing.md) on distributed tracing.
+
+**Diagrams are Mermaid, not images.** They render on GitHub, diff in review, and cannot drift
+without someone editing the file that describes them.
+
+**Single-node facts are stated as such.** This platform runs on one node, and where that has a
+real consequence the document names it rather than implying redundancy that does not exist.
