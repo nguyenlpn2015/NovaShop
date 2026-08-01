@@ -137,10 +137,15 @@ desired state through Argo CD.
 | Architecture | [Edge Architecture Diagram](diagrams/EDGE_ARCHITECTURE.md) |
 
 Production edge manifests are under
-[`kubernetes/ingress/examples`](kubernetes/ingress/examples/). The prior
-HTTP-only manifests remain under
-[`kubernetes/ingress/http`](kubernetes/ingress/http/) as the rollback target.
-Docker Desktop continues using its local Ingress.
+[`kubernetes/ingress/examples`](kubernetes/ingress/examples/). The rollback
+target is [`kubernetes/ingress/baseline`](kubernetes/ingress/baseline/), which
+keeps cert-manager, the certificates, and HTTPS in place while releasing
+enforcement and serving `Strict-Transport-Security: max-age=0` so browsers drop
+the HSTS pin. The HTTP-only manifests under
+[`kubernetes/ingress/http`](kubernetes/ingress/http/) are retained as a
+break-glass path only: they prune the certificates, and Let's Encrypt limits
+reissuance to five duplicates per hostname set per week. Docker Desktop
+continues using its local Ingress.
 
 ---
 
@@ -371,13 +376,69 @@ the Argo CD resources. Application delivery is performed from
 
 ---
 
+# 🛡 Platform Guardrails
+
+The delivery contract above is enforced, not merely documented. No change reaches
+a default branch without rendering the desired state exactly as Argo CD does and
+validating the result.
+
+| Guardrail | Enforced by |
+|-----------|-------------|
+| Protected branches, required checks, linear history, squash merge | [`.github/rulesets`](.github/rulesets/) |
+| YAML lint, Kustomize build, Helm render, Kubernetes and CRD schemas | [`scripts/validate-platform.sh`](scripts/validate-platform.sh) |
+| Every pinned revision reachable from `main`; images exist in GHCR | [`scripts/validate-gitops-revisions.sh`](scripts/validate-gitops-revisions.sh) |
+| Runtime version consistent across image, CI, and manifest | [`scripts/validate-platform.sh`](scripts/validate-platform.sh) |
+| Images published only after tests, security scan, and platform validation | [`.github/workflows/release.yml`](.github/workflows/release.yml) |
+| `latest` promoted only after every component publishes | [`.github/workflows/release.yml`](.github/workflows/release.yml) |
+| Argo CD manifest verified against a pinned digest | [`argocd/install-manifest.sha256`](argocd/install-manifest.sha256) |
+| TLS-preserving rollback | [`kubernetes/ingress/baseline`](kubernetes/ingress/baseline/) |
+| Certificate and ACME key backup and restore | [`scripts/backup-platform-state.sh`](scripts/backup-platform-state.sh) |
+| Precondition-gated disaster recovery | [`scripts/linux/recover.sh`](scripts/linux/recover.sh) |
+
+Three properties are worth stating explicitly, because each closes a condition
+that could previously take production down without warning.
+
+**A pinned revision must be reachable from `main`.** The GitOps repository pins
+NovaShop commits for the Helm chart, the edge manifests, and cert-manager.
+A pin that lives only on a feature branch disappears when that branch is
+deleted, and Argo CD then cannot render any environment. Bootstrap and disaster
+recovery both fail.
+
+**Publishing cannot race validation.** The release workflow declares the shared
+validation workflow as a job dependency, so an image can only exist for a commit
+that passed application tests, the security scan, and platform validation. Each
+image is scanned before the registry ever sees it, and `latest` moves in a
+separate job that requires every component to have published.
+
+**Rollback preserves TLS.** Production advertises HSTS with a one-year
+`max-age`, so an HTTP-only rollback would fail hard for returning browsers and
+prune the certificates. The rollback target keeps cert-manager, the
+certificates, and HTTPS, releasing only enforcement and serving
+`Strict-Transport-Security: max-age=0` so browsers drop the pin.
+
+Run the same gate CI runs:
+
+```bash
+bash scripts/validate-platform.sh --gitops-dir ../NovaShop-GitOps
+```
+
+Details in [Platform Guardrails](docs/PLATFORM_GUARDRAILS.md), the flows in
+[diagrams/PLATFORM_GUARDRAILS.md](diagrams/PLATFORM_GUARDRAILS.md), the evidence
+in the [validation checklist](docs/guardrails/validation-checklist.md), and the
+decisions with rejected alternatives in
+[ADR 001](adr/001-platform-guardrails.md).
+
+---
+
 # 📂 Repository Structure
 
 ```
 NovaShop/
 
 ├── .github/
-│   └── workflows/
+│   ├── workflows/     CI, release, and the shared validation workflow
+│   ├── rulesets/      Branch protection as reviewed JSON
+│   └── dependabot.yml
 
 ├── adr/
 │   └── Architecture Decision Records
@@ -401,7 +462,7 @@ NovaShop/
 │   └── Helm Charts
 
 ├── argocd/
-│   └── One-time GitOps bootstrap manifests
+│   └── One-time GitOps bootstrap manifests and the pinned Argo CD digest
 
 ├── monitoring/
 │   └── Observability Stack
@@ -416,7 +477,13 @@ NovaShop/
 │   └── Operational Procedures
 
 ├── scripts/
-│   └── Utility Scripts
+│   ├── validate-platform.sh          Desired-state validation gate
+│   ├── validate-gitops-revisions.sh  Revision durability and image traceability
+│   ├── apply-branch-protection.sh    Apply the reviewed rulesets
+│   ├── backup-platform-state.sh      Export TLS keys and the ACME account key
+│   ├── restore-platform-state.sh     Restore certificate material
+│   ├── lib/                          Shared shell helpers
+│   └── linux/                        Target B bootstrap, verify, recover, cleanup
 ```
 
 > Some directories will be introduced progressively throughout the project roadmap.
@@ -452,6 +519,15 @@ Documentation is considered part of the product.
 | runbooks | Operational runbooks |
 | diagrams | System diagrams |
 
+Key documents:
+
+- [Platform Guardrails](docs/PLATFORM_GUARDRAILS.md)
+- [Guardrail Validation Checklist](docs/guardrails/validation-checklist.md)
+- [Disaster Recovery](docs/recovery/disaster-recovery.md)
+- [GitOps Architecture](docs/GITOPS_ARCHITECTURE.md)
+- [Operations](docs/OPERATIONS.md)
+- [ADR 001: Platform Guardrails](adr/001-platform-guardrails.md)
+
 ---
 
 # 📊 Current Progress
@@ -466,6 +542,7 @@ Documentation is considered part of the product.
 | Infrastructure | ⏳ Planned |
 | Kubernetes | ✅ Completed |
 | GitOps | ✅ Completed |
+| Platform Guardrails | ✅ Completed |
 | Observability | ⏳ Planned |
 | DevSecOps | ⏳ Planned |
 | Production | ⏳ Planned |
@@ -473,8 +550,8 @@ Documentation is considered part of the product.
 Current Phase
 
 ```
-Sprint 4
-GitOps Foundation
+Sprint 5.0
+Platform Guardrails
 ```
 
 ---
@@ -484,17 +561,19 @@ GitOps Foundation
 Current Sprint
 
 ```
-Sprint 4
-GitOps Foundation
+Sprint 5.0
+Platform Guardrails
 ```
 
 Current Objectives
 
-- Separate application and deployment responsibilities
-- Establish Argo CD bootstrap resources
-- Define environment-specific desired state
-- Document synchronization, promotion, and rollback
-- Prepare CI-driven GitOps pull requests
+- Enforce the delivery contract instead of documenting it
+- Require every pinned revision to be reachable from the default branch
+- Make publication depend on validation inside one job graph
+- Keep rollback from destroying certificates
+- Restore a platform from Git, DNS, and a certificate backup
+
+Next: Sprint 5.1 deploys observability onto these guardrails.
 
 ---
 
@@ -502,14 +581,20 @@ Current Objectives
 
 | Metric | Current |
 |---------|---------|
-| ADRs | 0 |
+| ADRs | 1 |
 | Runbooks | 0 |
-| Architecture Documents | 1 |
-| CI Pipelines | 2 |
+| Architecture Documents (`architecture/`) | 0 |
+| CI Pipelines | 3 |
 | Helm Charts | 1 |
 | Terraform Modules | 0 |
-| Kubernetes Manifests | 8 |
+| Kubernetes Manifests | 22 |
+| Argo CD Manifests | 4 |
+| Platform Scripts | 17 |
 | Production Releases | 0 |
+
+The `architecture/` directory is still empty; system architecture currently
+lives in [GitOps Architecture](docs/GITOPS_ARCHITECTURE.md) and
+[diagrams/](diagrams/).
 
 These metrics will evolve throughout the project lifecycle.
 
@@ -566,9 +651,19 @@ Kubernetes Platform
 
 GitOps
 
+## Phase 7.5
+
+Platform Guardrails ✅
+
+Enforced GitOps validation, release gating, bootstrap reliability, and disaster
+recovery. Delivered in [Sprint 5.0](docs/SPRINTS/Sprint-5.0.md).
+
 ## Phase 8
 
 Observability
+
+Deployed onto the Phase 7.5 guardrails so a faulty telemetry change is stopped
+before it reaches the cluster.
 
 ## Phase 9
 
