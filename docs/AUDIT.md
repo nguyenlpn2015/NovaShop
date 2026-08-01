@@ -256,7 +256,6 @@ someone else's traffic, and every document says so.
 | **Memory limits at ~150% of allocatable** | Intentional overcommit; the OOM killer picks by score, not importance. |
 | **No autoscaling** | Replica counts are fixed in values files. |
 | **No PodDisruptionBudgets in practice** | With one node they would only block drains. |
-| **No ACME contact email** | Let's Encrypt expiry warnings go nowhere. |
 | **No load testing** | Alert thresholds are reasoned, not measured. |
 
 ### What is genuinely production-grade
@@ -267,8 +266,9 @@ practice.
 
 ### To reach 3
 
-Configure alert routing to a real destination with a Secret; set the ACME contact; extend
-retention or add remote write.
+Configure alert routing to a real destination with a Secret; extend retention or add remote
+write. The ACME contact address is set, so Let's Encrypt expiry warnings now reach a
+monitored mailbox.
 
 ### To reach 4
 
@@ -351,7 +351,6 @@ Ordered by value per unit of effort. Nothing here requires a new platform techno
 | # | Item | Why it is first |
 |---|---|---|
 | 1 | Configure alert routing to a real destination | Fourteen good alerts that page nobody are diagnostics, not alerting. The single largest gap between this and an operating platform. |
-| 2 | Set the ACME contact email | Free second line of defence behind `CertificateExpiring`. Needs a monitored mailbox — a decision, not code. |
 | 3 | Rotate node credentials, enforce SSH keys | Known, documented, and the only genuinely open security item. |
 | 4 | Remove the duplicate `push` CI trigger | Halves CI cost and removes a real source of confusion. |
 | 5 | Remove the duplicate Traefik scrape | Requires overriding a chart default scrape job; combine with item 6. |

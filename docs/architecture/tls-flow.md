@@ -103,12 +103,7 @@ continuing to point here — see [DNS](dns.md).
 
 Issuer is a `ClusterIssuer` named `letsencrypt-production`, ACME HTTP-01.
 
-## Two open items
-
-**The ACME account has no contact email.** Let's Encrypt sends expiry warnings to it,
-which is a free second line of defence behind `CertificateExpiring`. It needs a
-monitored mailbox, which is a decision rather than a code change. On the
-[roadmap](../../docs/ROADMAP.md).
+## One open item
 
 **Cloudflare proxy stays off.** Enabling it requires moving to DNS-01 first, or
 HTTP-01 validation breaks silently. See [DNS](dns.md).

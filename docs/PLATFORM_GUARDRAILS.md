@@ -208,7 +208,7 @@ recorded in [ADR 001](../adr/001-platform-guardrails.md).
 
 ## Known follow-up
 
-The ACME `ClusterIssuer` resources declare no contact address, so Let's Encrypt
+Resolved: the ACME `ClusterIssuer` resources now declare a contact address. Previously Let's Encrypt
 cannot send expiry warnings and there is no account recovery contact. Adding one
 requires a mailbox the team monitors and is left as an explicit decision rather
 than an invented value.
