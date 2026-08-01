@@ -61,10 +61,16 @@ Requires the GitHub CLI with administration:write on the target repository.
 EOF
 }
 
-# Collects check-run names GitHub has actually reported on recent commits of the
-# default branch. This is the ground truth for required status check contexts,
-# which cannot be guessed reliably because reusable workflows report as
-# "<caller job> / <called job>".
+# Collects check-run names GitHub has actually reported. This is the ground
+# truth for required status check contexts, which cannot be guessed reliably
+# because reusable workflows report as "<caller job> / <called job>".
+#
+# Both recent default-branch commits and recent pull request head commits are
+# inspected. A repository whose validation workflow triggers only on
+# pull_request never produces a check run on the default branch, because a
+# squash merge creates a commit the workflow never sees. Looking only at the
+# default branch would report such contexts as nonexistent and refuse to apply
+# a ruleset that is correct.
 discover_reported_checks() {
   local default_branch
   local commit_sha
@@ -73,16 +79,19 @@ discover_reported_checks() {
     gh api "repos/${REPOSITORY}" --jq '.default_branch'
   )"
 
-  while IFS= read -r commit_sha; do
+  {
+    gh api \
+      "repos/${REPOSITORY}/commits?sha=${default_branch}&per_page=${CHECK_DISCOVERY_LIMIT}" \
+      --jq '.[].sha' 2>/dev/null || true
+    gh api \
+      "repos/${REPOSITORY}/pulls?state=all&sort=updated&direction=desc&per_page=${CHECK_DISCOVERY_LIMIT}" \
+      --jq '.[].head.sha' 2>/dev/null || true
+  } | tr -d '\r' | sort --unique | while IFS= read -r commit_sha; do
     [[ -n "${commit_sha}" ]] || continue
     gh api \
       "repos/${REPOSITORY}/commits/${commit_sha}/check-runs?per_page=100" \
       --jq '.check_runs[].name' 2>/dev/null || true
-  done < <(
-    gh api \
-      "repos/${REPOSITORY}/commits?sha=${default_branch}&per_page=${CHECK_DISCOVERY_LIMIT}" \
-      --jq '.[].sha'
-  ) | tr -d '\r' | sort --unique
+  done | tr -d '\r' | sort --unique
 }
 
 verify_required_checks() {
@@ -116,7 +125,7 @@ verify_required_checks() {
     return
   fi
 
-  log 'Check runs observed on the default branch:'
+  log 'Check runs observed on recent default-branch and pull request commits:'
   printf '%s\n' "${reported}" | sed 's/^/[branch-protection]   /'
 
   while IFS= read -r context; do
