@@ -42,13 +42,18 @@ Each layer is a separate root module with its own state. Numbered by dependency 
 | [`2-k3s`](layers/2-k3s/) | k3s version and server arguments | built-in | 4 |
 | [`3-github`](layers/3-github/) | Two repositories, rulesets, Dependabot | `github` | 5 |
 | [`4-dns`](layers/4-dns/) | Cloudflare A records | `cloudflare` | 6 |
+| [`5-cluster`](layers/5-cluster/) | The one namespace Argo CD does not reconcile, a read-only role, and cluster prerequisites | `kubernetes` | 7 |
 
 Layers are separate rather than workspaces because they differ in **lifecycle** and in
 **who can run them** — a DNS change and a node change have nothing in common except this
 repository. Workspaces share one backend configuration and encourage `count` by
 environment, which is not the axis this platform varies on.
 
-There is deliberately no layer for Kubernetes objects. See the ownership boundary above.
+`5-cluster` is the one layer inside the cluster, and it **asserts far more than it owns** —
+two resources against eleven assertions. Checking what Argo CD actually reconciles, rather
+than assuming, found that five of six namespaces are reconciled and three of those carry no
+tracking annotation at all: `managedNamespaceMetadata` on the ApplicationSet reapplies their
+labels every sync. See [ADR 013](../adr/013-terraform-kubernetes-boundary.md).
 
 ## Running a layer
 
@@ -155,6 +160,7 @@ Every example is committed; no file containing a real credential is.
 | Not managed | Why |
 |---|---|
 | Anything Argo CD reconciles | Two controllers, one object — see the boundary above |
-| The out-of-band Kubernetes Secrets | Terraform state stores values in plaintext. `/root/.novashop-platform.env` is root-owned and 0600, which is stronger. See [ADR 010](../adr/010-secret-management.md) |
+| Helm releases and Applications | Argo CD's, without exception |
+| The out-of-band Kubernetes Secrets | Terraform state stores values in plaintext, and **importing or even reading one puts it there**. `/root/.novashop-platform.env` is root-owned and 0600, which is stronger. `5-cluster` codifies their shape and never their values. See [ADR 010](../adr/010-secret-management.md) and [ADR 013](../adr/013-terraform-kubernetes-boundary.md) |
 | FortiGate NAT policy | No provider worth depending on |
 | Let's Encrypt certificates | cert-manager owns these, and issuance is rate limited |

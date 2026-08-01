@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Refined by [ADR 013](013-terraform-kubernetes-boundary.md), which adds a Kubernetes layer that asserts cluster prerequisites and owns only what Argo CD does not reconcile.
 
 ## Date
 
