@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     # slots just by being probed.
     database_pool_max_size: int = 2
 
+    # Metrics are always on; the endpoint is not routable from outside the
+    # cluster because no Ingress rule exposes it.
+    metrics_path: str = "/metrics"
+
+    # Tracing stays off until a collector exists. The OTLP exporter retries on
+    # failure, so enabling it early produces errors in every replica and no
+    # traces. Phase 7 sets this once Alloy is receiving OTLP.
+    otel_exporter_otlp_endpoint: str = ""
+    otel_service_name: str = "novashop-backend"
+    otel_traces_sample_ratio: float = 0.1
+
 
 @lru_cache
 def get_settings() -> Settings:
