@@ -16,3 +16,15 @@
 /diagrams/ @nguyenlpn2015
 /runbooks/ @nguyenlpn2015
 /scripts/ @nguyenlpn2015
+
+# Deployment surfaces. A change here reaches production through Argo CD without
+# any further code change, so it carries the same review weight as the platform.
+/argocd/ @nguyenlpn2015
+/helm/ @nguyenlpn2015
+/kubernetes/ @nguyenlpn2015
+
+# Guardrails protect every other path in this file. Changing them changes what
+# can be merged at all.
+/.github/workflows/ @nguyenlpn2015
+/.github/rulesets/ @nguyenlpn2015
+/.yamllint.yaml @nguyenlpn2015

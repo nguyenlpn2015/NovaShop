@@ -17,6 +17,32 @@ The Helm chart revision and container image revision are both pinned in the
 GitOps repository. A change in the application repository cannot deploy until a
 reviewed GitOps pull request updates those revisions.
 
+### Revision Durability
+
+Every pinned NovaShop revision must be a forty-character commit SHA that is
+reachable from the NovaShop default branch. This is enforced by
+`scripts/validate-gitops-revisions.sh` and is not a style preference.
+
+A pin that exists only on a feature branch survives only as long as that branch.
+Deleting a branch after its pull request merges is ordinary hygiene, but it makes
+the commit unreachable and eventually collectable. Argo CD then cannot resolve
+`targetRevision`, so every environment, cert-manager, and the certificates stop
+rendering, and both bootstrap and disaster recovery fail with no earlier warning.
+
+The same validation requires that each environment deploys backend and frontend
+from a single source commit, that no desired state references a mutable tag, and
+that every referenced image tag exists in the registry. A missing tag is reported
+during review instead of appearing as `ImagePullBackOff` after a merge.
+
+### Validation Gates
+
+No change reaches either default branch without passing
+`scripts/validate-platform.sh`, which renders the desired state the way Argo CD
+does and validates the result. Both repositories call the same script through the
+same reusable workflow, so the application repository and the deployment
+repository are held to one definition of correctness. The gates are catalogued in
+[Platform Guardrails](PLATFORM_GUARDRAILS.md).
+
 ## Control Plane
 
 ```text
@@ -103,6 +129,17 @@ If either repository becomes private, credentials must be provisioned
 out-of-band and scoped read-only.
 
 ## Rollback Strategy
+
+Rollback preserves TLS. The rollback target is the `tls-baseline` phase, which
+keeps cert-manager, the `Certificate` resources, and HTTPS routing, and releases
+only enforcement. It serves `Strict-Transport-Security: max-age=0` so browsers
+drop the pin the enforced phase gave them.
+
+The HTTP-only phase is retained as a break-glass path only. Because production
+advertises HSTS with a one-year `max-age`, removing HTTPS causes returning
+browsers to fail rather than degrade, and pruning deletes the certificates.
+Reissuance is rate limited to five duplicate certificates per hostname set per
+168 hours.
 
 The primary rollback is a Git revert in `NovaShop-GitOps`:
 

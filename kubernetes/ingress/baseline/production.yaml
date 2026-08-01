@@ -1,0 +1,182 @@
+# TLS-preserving rollback target for production.
+#
+# cert-manager, the Certificate resources, and HTTPS routing are unchanged from
+# the enforced phase. Only edge enforcement is released: HTTP answers directly
+# instead of redirecting, and Strict-Transport-Security is advertised as
+# max-age=0 so browsers release the pin the enforced phase gave them.
+#
+# Rolling back to this phase never prunes a Certificate and never consumes
+# Let's Encrypt issuance quota, which is what makes it safe to use during an
+# incident. Rolling back to kubernetes/ingress/http instead would delete the
+# certificates and strand every browser that already cached HSTS.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-http-headers
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  headers:
+    contentTypeNosniff: true
+    frameDeny: true
+    referrerPolicy: strict-origin-when-cross-origin
+    customResponseHeaders:
+      Permissions-Policy: "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-http-compress
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  compress: {}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-http-chain
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  chain:
+    middlewares:
+      - name: novashop-http-headers
+      - name: novashop-http-compress
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-security-headers
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  headers:
+    contentTypeNosniff: true
+    frameDeny: true
+    referrerPolicy: strict-origin-when-cross-origin
+    customResponseHeaders:
+      Permissions-Policy: "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+      # Setting stsSeconds to 0 would omit the header entirely and leave the
+      # previously advertised pin in place. An explicit max-age=0 is what
+      # actually clears it.
+      Strict-Transport-Security: "max-age=0"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-compress
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  compress: {}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: novashop-secure-chain
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: novashop
+spec:
+  chain:
+    middlewares:
+      - name: novashop-security-headers
+      - name: novashop-compress
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: novashop-public-http
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop-production
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: novashop
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: novashop-production-novashop-http-chain@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: novashop.smartdev.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-frontend
+                port:
+                  name: http
+    - host: api.novashop.smartdev.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-backend
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: novashop-public-https
+  namespace: novashop-production
+  labels:
+    app.kubernetes.io/name: novashop
+    app.kubernetes.io/instance: novashop-production
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: novashop
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: novashop-production-novashop-secure-chain@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - novashop.smartdev.vn
+        - api.novashop.smartdev.vn
+      secretName: novashop-production-tls
+  rules:
+    - host: novashop.smartdev.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-frontend
+                port:
+                  name: http
+    - host: api.novashop.smartdev.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: novashop-backend
+                port:
+                  name: http

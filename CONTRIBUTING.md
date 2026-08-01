@@ -75,6 +75,35 @@ A pull request should:
 Draft pull requests are encouraged for early feedback. Approval does not
 replace the requirement for passing checks.
 
+### Required Checks
+
+The default branch is protected by the rulesets in
+[`.github/rulesets`](.github/rulesets/). Merges require a linear history, a
+squash merge, resolved conversations, and every check reported by the
+[`Validation` workflow](.github/workflows/validation.yml): `Backend`, `Frontend`,
+`Container Images`, `Security`, and `Platform`.
+
+Changing a job name in that workflow changes a required check context. Update the
+matching ruleset in the same pull request, otherwise the required check will never
+be reported again and every subsequent pull request becomes unmergeable.
+
+### Validate Before Opening
+
+Any change to `helm/`, `kubernetes/`, `argocd/`, or the workflows affects the
+deployed desired state. Run the same gate CI runs:
+
+```bash
+bash scripts/validate-platform.sh --gitops-dir ../NovaShop-GitOps
+```
+
+It needs `yamllint`, `helm`, `kubeconform`, and either `kustomize` or a recent
+`kubectl`. Include the `RESULT` line as your validation evidence.
+
+Changes to `NovaShop-GitOps` are validated by the same script through a
+cross-repository workflow, so a pull request there must also keep every pinned
+NovaShop revision reachable from this repository's default branch. See
+[Platform Guardrails](docs/PLATFORM_GUARDRAILS.md).
+
 ## Reviews and Merging
 
 Reviewers evaluate correctness, security, maintainability, operability,

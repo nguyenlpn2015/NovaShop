@@ -1,0 +1,50 @@
+version: 2
+
+# Pinned dependencies stop drifting silently, but they also stop receiving
+# security fixes unless something proposes the upgrade. Dependabot opens those
+# proposals as pull requests, which means every dependency change passes the same
+# validation gates as any other change to the platform.
+updates:
+  # Action digests are pinned by SHA throughout the workflows. Without this,
+  # a pinned digest would never be revisited.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(actions)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(backend)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(frontend)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(images)"
+    labels:
+      - dependencies

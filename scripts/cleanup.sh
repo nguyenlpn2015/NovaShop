@@ -15,9 +15,14 @@ fi
 
 CONFIRMED=false
 INCLUDE_ARGOCD=false
+ACCEPT_CERTIFICATE_LOSS=false
 
 log() {
   printf '[cleanup] %s\n' "$*"
+}
+
+warn() {
+  printf '[cleanup] WARN: %s\n' "$*" >&2
 }
 
 die() {
@@ -27,10 +32,18 @@ die() {
 
 usage() {
   cat <<'EOF'
-Usage: cleanup.sh --confirm [--include-argocd]
+Usage: cleanup.sh --confirm [--include-argocd] [--accept-certificate-loss]
 
-  --confirm          Required acknowledgement for deleting NovaShop runtime.
-  --include-argocd   Also remove the pinned Argo CD installation and namespace.
+  --confirm                    Required acknowledgement for deleting the
+                               NovaShop runtime.
+  --include-argocd             Also remove the pinned Argo CD installation and
+                               namespace.
+  --accept-certificate-loss    Proceed even though no certificate backup was
+                               found. Required when TLS Secrets are present.
+
+Deleting the environment namespaces destroys the cert-manager TLS Secrets they
+contain. Let's Encrypt allows only five duplicate certificates per hostname set
+per week, so run scripts/backup-platform-state.sh first.
 EOF
 }
 
@@ -41,6 +54,9 @@ while (( $# > 0 )); do
       ;;
     --include-argocd)
       INCLUDE_ARGOCD=true
+      ;;
+    --accept-certificate-loss)
+      ACCEPT_CERTIFICATE_LOSS=true
       ;;
     -h | --help)
       usage
@@ -61,6 +77,23 @@ command -v grep >/dev/null 2>&1 || die "Required command not found: grep"
 
 "${KUBECTL[@]}" cluster-info >/dev/null
 log "Using Kubernetes context: $("${KUBECTL[@]}" config current-context)"
+
+# Certificate private keys exist only in the cluster. Namespace deletion is
+# irreversible and re-issuance is rate limited, so the loss must be acknowledged
+# rather than discovered afterwards.
+tls_secrets_present=false
+for environment in "${ENVIRONMENTS[@]}"; do
+  if "${KUBECTL[@]}" get secret "novashop-${environment}-tls" \
+    --namespace "novashop-${environment}" >/dev/null 2>&1; then
+    tls_secrets_present=true
+    warn "TLS Secret novashop-${environment}/novashop-${environment}-tls will be destroyed."
+  fi
+done
+
+if [[ "${tls_secrets_present}" == "true" \
+  && "${ACCEPT_CERTIFICATE_LOSS}" != "true" ]]; then
+  die "Refusing to destroy TLS Secrets. Run scripts/backup-platform-state.sh first, then rerun with --accept-certificate-loss."
+fi
 
 if "${KUBECTL[@]}" api-resources \
   --api-group=argoproj.io \
@@ -85,7 +118,9 @@ if "${KUBECTL[@]}" api-resources \
     --wait=true \
     --timeout="${WAIT_TIMEOUT}"
 
-  "${KUBECTL[@]}" delete appproject novashop \
+  # Both projects must go. Leaving novashop-platform behind blocks a later
+  # rebootstrap from recreating it with a changed specification.
+  "${KUBECTL[@]}" delete appproject novashop novashop-platform \
     --namespace "${ARGOCD_NAMESPACE}" \
     --ignore-not-found \
     --wait=true \

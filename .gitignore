@@ -85,6 +85,14 @@ terraform.rc
 kubeconfig
 charts/*.tgz
 
+# Platform state exports contain TLS private keys and the ACME account key.
+# They must never reach a Git object, not even on a feature branch.
+platform-state/
+platform-state-*/
+tls-*.json
+acme-*.json
+runtime-*.json
+
 # Local tooling and generated artifacts
 .cache/
 artifacts/

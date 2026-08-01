@@ -32,9 +32,20 @@ Kubernetes Platform
 
 GitOps
 
+## Phase 7.5
+
+Platform Guardrails ✅
+
+Enforced GitOps validation, release gating, bootstrap reliability, and disaster
+recovery. Delivered in [Sprint 5.0](SPRINTS/Sprint-5.0.md); decisions recorded in
+[ADR 001](../adr/001-platform-guardrails.md).
+
 ## Phase 8
 
 Observability
+
+Sprint 5.1. Deployed onto the guardrails from Phase 7.5 so a faulty telemetry
+change is stopped before it reaches the cluster.
 
 ## Phase 9
 

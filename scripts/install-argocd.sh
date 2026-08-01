@@ -11,6 +11,7 @@ readonly ARGOCD_NAMESPACE="${ARGOCD_NAMESPACE:-argocd}"
 readonly ARGOCD_VERSION="${ARGOCD_VERSION:-v3.4.4}"
 readonly ARGOCD_INSTALL_DIR="${ARGOCD_INSTALL_DIR:-${HOME}/.local/bin}"
 readonly WAIT_TIMEOUT="${WAIT_TIMEOUT:-10m}"
+readonly INSTALL_MANIFEST_DIGESTS="${INSTALL_MANIFEST_DIGESTS:-${REPO_ROOT}/argocd/install-manifest.sha256}"
 
 KUBECTL=(kubectl)
 if [[ -n "${KUBE_CONTEXT:-}" ]]; then
@@ -41,6 +42,37 @@ remove_temporary_directory() {
 
 trap remove_temporary_directory EXIT
 
+# Downloads the official installation manifest and verifies it against the
+# digest reviewed in this repository. Bootstrap and disaster recovery must
+# install exactly the control plane that was approved, even when the upstream
+# host is unavailable or serving unexpected content.
+fetch_verified_install_manifest() {
+  local manifest_name="argo-cd-${ARGOCD_VERSION}-install.yaml"
+  local manifest_path="${TEMPORARY_DIRECTORY}/${manifest_name}"
+  local expected_digest
+
+  [[ -r "${INSTALL_MANIFEST_DIGESTS}" ]] \
+    || die "Pinned digest file is not readable: ${INSTALL_MANIFEST_DIGESTS}"
+
+  expected_digest="$(
+    awk -v name="${manifest_name}" \
+      '$1 !~ /^#/ && $2 == name { print $1 }' \
+      "${INSTALL_MANIFEST_DIGESTS}"
+  )"
+  [[ -n "${expected_digest}" ]] \
+    || die "No pinned digest for ${ARGOCD_VERSION} in ${INSTALL_MANIFEST_DIGESTS}. Add one in a reviewed change before installing this version."
+
+  curl --fail --silent --show-error --location \
+    --output "${manifest_path}" \
+    "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
+
+  printf '%s  %s\n' "${expected_digest}" "${manifest_path}" \
+    | sha256sum --check --status - \
+    || die "Argo CD ${ARGOCD_VERSION} manifest failed digest verification. Refusing to apply unreviewed content."
+
+  printf '%s' "${manifest_path}"
+}
+
 install_argocd_cli() {
   local architecture
   local asset
@@ -65,7 +97,6 @@ install_argocd_cli() {
   esac
 
   asset="argocd-linux-${architecture}"
-  TEMPORARY_DIRECTORY="$(mktemp -d)"
 
   log "Downloading Argo CD CLI ${ARGOCD_VERSION}."
   curl --fail --silent --show-error --location \
@@ -98,6 +129,8 @@ install_argocd_cli() {
 }
 
 main() {
+  local install_manifest
+
   require_command kubectl
   require_command curl
   require_command awk
@@ -110,6 +143,8 @@ main() {
   [[ "${ARGOCD_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
     || die "ARGOCD_VERSION must be a release tag such as v3.4.4."
 
+  TEMPORARY_DIRECTORY="$(mktemp -d)"
+
   "${KUBECTL[@]}" cluster-info >/dev/null
   log "Using Kubernetes context: $("${KUBECTL[@]}" config current-context)"
 
@@ -117,13 +152,14 @@ main() {
     --field-manager=novashop-bootstrap \
     -f "${REPO_ROOT}/argocd/namespace.yaml"
 
-  log "Installing Argo CD ${ARGOCD_VERSION} from the official pinned manifest."
+  install_manifest="$(fetch_verified_install_manifest)"
+  log "Installing Argo CD ${ARGOCD_VERSION} from the verified pinned manifest."
   "${KUBECTL[@]}" apply \
     --namespace "${ARGOCD_NAMESPACE}" \
     --server-side \
     --force-conflicts \
     --field-manager=argocd-installer \
-    -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
+    -f "${install_manifest}"
 
   "${KUBECTL[@]}" wait \
     --namespace "${ARGOCD_NAMESPACE}" \

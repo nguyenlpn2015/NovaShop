@@ -13,7 +13,30 @@ readonly MINIMUM_FREE_DISK_PERCENT="${MINIMUM_FREE_DISK_PERCENT:-15}"
 readonly TLS_PHASE_ENABLED="${TLS_PHASE_ENABLED:-false}"
 readonly TLS_ISSUER_NAME="${TLS_ISSUER_NAME:-letsencrypt-staging}"
 readonly TLS_PRODUCTION_ENABLED="${TLS_PRODUCTION_ENABLED:-false}"
+readonly TRAEFIK_NAMESPACE="${TRAEFIK_NAMESPACE:-kube-system}"
 readonly ENVIRONMENTS=(development staging production)
+
+# cert-manager renews at roughly two thirds of the certificate lifetime, so a
+# 90-day Let's Encrypt certificate should never fall below 30 days. Alerting at
+# 21 days leaves a week of margin to react before the renewal path is a
+# production incident rather than a warning.
+readonly MIN_CERT_DAYS_REMAINING="${MIN_CERT_DAYS_REMAINING:-21}"
+readonly MIN_HSTS_MAX_AGE="${MIN_HSTS_MAX_AGE:-31536000}"
+
+# enforced  HTTPS is mandatory: HTTP redirects and HSTS is advertised.
+# baseline  HTTPS is served, HTTP still answers, and HSTS is actively released.
+# http      No TLS at all. Break-glass only.
+EDGE_PHASE="${EDGE_PHASE:-}"
+if [[ -z "${EDGE_PHASE}" ]]; then
+  if [[ "${TLS_PRODUCTION_ENABLED}" == "true" ]]; then
+    EDGE_PHASE=enforced
+  elif [[ "${TLS_PHASE_ENABLED}" == "true" ]]; then
+    EDGE_PHASE=baseline
+  else
+    EDGE_PHASE=http
+  fi
+fi
+readonly EDGE_PHASE
 
 declare -Ar FRONTEND_HOSTS=(
   [development]="dev.novashop.smartdev.vn"
@@ -266,13 +289,12 @@ memory_is_available() {
   (( $(free --bytes | awk '/^Mem:/ { print $7 }') > 0 ))
 }
 
-certificate_expiry_is_healthy() {
+certificate_days_remaining() {
   local environment="$1"
   local namespace="novashop-${environment}"
   local not_after
   local expires_epoch
   local now_epoch
-  local days_remaining
 
   not_after="$(
     kubectl get secret "novashop-${environment}-tls" \
@@ -281,12 +303,101 @@ certificate_expiry_is_healthy() {
       | base64 --decode \
       | openssl x509 -noout -enddate \
       | cut --delimiter='=' --fields=2-
-  )"
-  expires_epoch="$(date --date="${not_after}" +%s)"
+  )" || return 1
+  [[ -n "${not_after}" ]] || return 1
+
+  expires_epoch="$(date --date="${not_after}" +%s)" || return 1
   now_epoch="$(date +%s)"
-  days_remaining=$(( (expires_epoch - now_epoch) / 86400 ))
-  (( days_remaining > 0 ))
-  pass "Certificate in ${namespace} expires in ${days_remaining} days"
+  printf '%d' $(( (expires_epoch - now_epoch) / 86400 ))
+}
+
+# Reports its own result because the remaining-days value is operationally
+# useful. Earlier revisions counted a pass inside the predicate and a failure in
+# the caller, which produced inconsistent totals.
+check_certificate_expiry() {
+  local environment="$1"
+  local label="Certificate in novashop-${environment} has at least ${MIN_CERT_DAYS_REMAINING} days remaining"
+  local days_remaining
+
+  if ! days_remaining="$(certificate_days_remaining "${environment}")"; then
+    fail "${label}" 'The certificate expiry date could not be read.'
+    return
+  fi
+
+  if (( days_remaining >= MIN_CERT_DAYS_REMAINING )); then
+    pass "${label} (${days_remaining} days)"
+  else
+    fail "${label}" \
+      "Only ${days_remaining} days remain; ACME renewal is overdue or failing."
+  fi
+}
+
+# A registered ACME account URI proves the issuer completed registration, which
+# is a precondition for every future renewal. Renewal itself cannot be exercised
+# on demand without consuming Let's Encrypt rate limit.
+acme_account_is_registered() {
+  [[ -n "$(
+    kubectl get clusterissuer "${TLS_ISSUER_NAME}" \
+      --output=jsonpath='{.status.acme.uri}'
+  )" ]]
+}
+
+certificate_renewal_is_scheduled() {
+  local environment="$1"
+
+  [[ -n "$(
+    kubectl get "certificate/novashop-${environment}-tls" \
+      --namespace "novashop-${environment}" \
+      --output=jsonpath='{.status.renewalTime}'
+  )" ]]
+}
+
+traefik_exposes_edge_entrypoints() {
+  local ports
+
+  ports="$(
+    kubectl --namespace "${TRAEFIK_NAMESPACE}" get service traefik \
+      --output=jsonpath='{range .spec.ports[*]}{.name}{"\n"}{end}'
+  )"
+
+  grep --fixed-strings --line-regexp --quiet web <<<"${ports}" \
+    && grep --fixed-strings --line-regexp --quiet websecure <<<"${ports}"
+}
+
+hsts_max_age() {
+  local hostname="$1"
+  local -a tls_options=()
+
+  if [[ "${TLS_ISSUER_NAME}" == "letsencrypt-staging" ]]; then
+    tls_options+=(--insecure)
+  fi
+
+  curl --disable \
+    --silent \
+    --show-error \
+    --noproxy '*' \
+    "${tls_options[@]}" \
+    --max-time "${REQUEST_TIMEOUT}" \
+    --head \
+    "https://${hostname}/" \
+    | grep --ignore-case '^strict-transport-security:' \
+    | sed -n 's/.*[Mm]ax-[Aa]ge=\([0-9][0-9]*\).*/\1/p' \
+    | head --lines=1
+}
+
+hsts_max_age_at_least() {
+  local value
+
+  value="$(hsts_max_age "$1")"
+  [[ "${value}" =~ ^[0-9]+$ ]] || return 1
+  (( value >= $2 ))
+}
+
+hsts_max_age_equals() {
+  local value
+
+  value="$(hsts_max_age "$1")"
+  [[ "${value}" == "$2" ]]
 }
 
 main() {
@@ -298,6 +409,8 @@ main() {
   local backend_host
   local header_scheme="http"
   local preflight_failures
+
+  printf '[linux/verify] Edge phase under verification: %s\n' "${EDGE_PHASE}"
 
   if [[ "${TLS_PRODUCTION_ENABLED}" == "true" \
     && "${TLS_PHASE_ENABLED}" != "true" ]]; then
@@ -343,10 +456,13 @@ main() {
   run_check \
     "Traefik deployment is Available" \
     kubectl wait \
-      --namespace kube-system \
+      --namespace "${TRAEFIK_NAMESPACE}" \
       --for=condition=Available \
       deployment/traefik \
       --timeout=2m
+  run_check \
+    "Traefik exposes the web and websecure entrypoints" \
+    traefik_exposes_edge_entrypoints
 
   run_check \
     "Argo CD deployments are Available" \
@@ -388,6 +504,9 @@ main() {
     run_check \
       "Let's Encrypt ClusterIssuer ${TLS_ISSUER_NAME} is Ready" \
       clusterissuer_is_ready
+    run_check \
+      "ACME account for ${TLS_ISSUER_NAME} is registered" \
+      acme_account_is_registered
     header_scheme="https"
   else
     pass "TLS phase is disabled; cert-manager installation is intentionally skipped"
@@ -459,8 +578,10 @@ main() {
       run_check \
         "TLS Secret is valid in ${namespace}" \
         tls_secret_is_valid "${environment}"
-      certificate_expiry_is_healthy "${environment}" \
-        || fail "Certificate expiry is valid in ${namespace}"
+      run_check \
+        "Certificate renewal is scheduled in ${namespace}" \
+        certificate_renewal_is_scheduled "${environment}"
+      check_certificate_expiry "${environment}"
       run_check \
         "frontend HTTPS returns 200: ${frontend_host}" \
         https_returns_200 "https://${frontend_host}/"
@@ -470,13 +591,25 @@ main() {
     fi
   done
 
-  if [[ "${TLS_PRODUCTION_ENABLED}" == "true" ]]; then
-    run_check \
-      "HSTS header is present" \
-      security_header_exists "${FRONTEND_HOSTS[production]}" \
-        "strict-transport-security" \
-        "https"
-  fi
+  # HSTS is asserted against the active phase, not merely for presence. The
+  # baseline phase must advertise max-age=0 so that browsers release the pin,
+  # which is what keeps a later move away from HTTPS recoverable.
+  case "${EDGE_PHASE}" in
+    enforced)
+      run_check \
+        "HSTS max-age is at least ${MIN_HSTS_MAX_AGE}" \
+        hsts_max_age_at_least "${FRONTEND_HOSTS[production]}" \
+          "${MIN_HSTS_MAX_AGE}"
+      ;;
+    baseline)
+      run_check \
+        "HSTS max-age is 0 so browsers release the HTTPS pin" \
+        hsts_max_age_equals "${FRONTEND_HOSTS[production]}" 0
+      ;;
+    *)
+      pass "Edge phase ${EDGE_PHASE} does not advertise HSTS"
+      ;;
+  esac
   run_check \
     "X-Content-Type-Options header is present" \
     security_header_exists "${FRONTEND_HOSTS[production]}" \

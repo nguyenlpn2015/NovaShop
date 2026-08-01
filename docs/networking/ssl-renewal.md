@@ -133,6 +133,48 @@ Let's Encrypt currently uses 90 days as its default lifetime and has published
 a transition toward shorter lifetimes. Automation is therefore an operational
 requirement, not an optimization.
 
+`scripts/linux/verify.sh` reports a failure once a certificate has fewer than
+`MIN_CERT_DAYS_REMAINING` days left, 21 by default. cert-manager renews at
+roughly two thirds of the lifetime, so a 90-day certificate should never fall
+below 30 days. Crossing 21 means renewal is already failing and there is about a
+week of margin left to act.
+
+## Issuance Rate Limits
+
+Let's Encrypt permits five duplicate certificates per identical hostname set per
+168 hours. NovaShop requests three certificates, each covering two hostnames, so
+the budget is consumed per environment and not globally.
+
+Every operation that deletes a `Certificate` or its Secret spends part of that
+budget on the way back:
+
+- deleting an environment namespace;
+- rolling back to the HTTP-only edge phase, which prunes the certificates;
+- rebuilding the node without a certificate backup.
+
+This is why the rollback target is the TLS-preserving `tls-baseline` phase and
+why `scripts/backup-platform-state.sh` exists. Use the ACME staging issuer for
+any rehearsal that would otherwise consume production issuance.
+
+## Renewal Path Invariant
+
+cert-manager solves HTTP-01 challenges on the Traefik `web` entrypoint, while the
+enforced phase attaches a redirect middleware to the HTTP router for `/`. Renewal
+works because cert-manager creates its own Ingress for
+`/.well-known/acme-challenge/<token>`, and Traefik derives router priority from
+rule length, so the longer challenge rule wins over the catch-all redirect.
+
+Two consequences follow. TCP 80 must stay reachable from the Internet even though
+every user-facing request is redirected. And any change that raises the priority
+of the redirect router, or that attaches the redirect at the entrypoint level
+rather than to the router, breaks renewal silently: nothing fails until the
+certificate expires up to 90 days later.
+
+Verification asserts what is observable without spending issuance quota: the
+ACME account is registered, `status.renewalTime` is set on every `Certificate`,
+and the remaining lifetime is above the margin. A real challenge is exercised
+only during a staging-issuer rehearsal.
+
 ## Rollback
 
 If the new certificate fails:

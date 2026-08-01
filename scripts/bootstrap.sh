@@ -14,8 +14,18 @@ readonly MINIMUM_KUBERNETES_MINOR=33
 readonly ENVIRONMENTS=(development staging production)
 ARGOCD_APPLICATION_MANIFEST="${ARGOCD_APPLICATION_MANIFEST:-${REPO_ROOT}/argocd/application.yaml}"
 readonly ARGOCD_APPLICATION_MANIFEST
-readonly ENABLE_TLS_VALIDATION="${ENABLE_TLS_VALIDATION:-false}"
+readonly TRAEFIK_NAMESPACE="${TRAEFIK_NAMESPACE:-kube-system}"
+
+# These two variables are assertions, not instructions. The GitOps repository is
+# the only place that decides which edge phase is active; bootstrap observes the
+# reconciled state and refuses to continue when the operator's expectation and
+# Git disagree. Leaving them unset lets bootstrap adopt whatever phase Git
+# declares, which is what makes a rerun on a rebuilt node safe.
+readonly ENABLE_TLS_VALIDATION="${ENABLE_TLS_VALIDATION:-}"
 readonly EXPECTED_EDGE_SOURCE_PATH="${EXPECTED_EDGE_SOURCE_PATH:-}"
+
+OBSERVED_EDGE_SOURCE_PATH=""
+TLS_PHASE_ACTIVE=false
 
 KUBECTL=(kubectl)
 if [[ -n "${KUBE_CONTEXT:-}" ]]; then
@@ -63,25 +73,75 @@ wait_for_namespace() {
   done
 }
 
-wait_for_application_source_path() {
+edge_source_path() {
   local application="$1"
-  local expected_path="$2"
-  local elapsed=0
-  local paths
 
-  until paths="$(
-    "${KUBECTL[@]}" get application "${application}" \
-      --namespace "${ARGOCD_NAMESPACE}" \
-      --output=jsonpath='{range .spec.sources[*]}{.path}{"\n"}{end}' \
-      2>/dev/null
-  )" && grep --fixed-strings --line-regexp --quiet \
-    "${expected_path}" <<<"${paths}"; do
-    if (( elapsed >= WAIT_SECONDS )); then
-      die "Timed out waiting for ${application} source path ${expected_path}."
+  "${KUBECTL[@]}" get application "${application}" \
+    --namespace "${ARGOCD_NAMESPACE}" \
+    --output=jsonpath='{range .spec.sources[*]}{.path}{"\n"}{end}' \
+    2>/dev/null \
+    | grep '^kubernetes/ingress/' \
+    | head -n 1
+}
+
+# Traefik belongs to k3s and is never modified here, but the public edge
+# contract depends on its two entrypoints. Asserting them turns a silent
+# routing failure after a node rebuild into an immediate, explicit error.
+assert_traefik_edge() {
+  local ports
+
+  "${KUBECTL[@]}" --namespace "${TRAEFIK_NAMESPACE}" rollout status \
+    deployment/traefik \
+    --timeout="${WAIT_TIMEOUT}" >/dev/null \
+    || die "Traefik is not available in ${TRAEFIK_NAMESPACE}."
+
+  ports="$(
+    "${KUBECTL[@]}" --namespace "${TRAEFIK_NAMESPACE}" get service traefik \
+      --output=jsonpath='{range .spec.ports[*]}{.name}{"\n"}{end}'
+  )"
+
+  grep --fixed-strings --line-regexp --quiet web <<<"${ports}" \
+    || die "Traefik has no 'web' entrypoint; HTTP routing and ACME HTTP-01 renewal cannot work."
+  grep --fixed-strings --line-regexp --quiet websecure <<<"${ports}" \
+    || die "Traefik has no 'websecure' entrypoint; HTTPS termination cannot work."
+
+  log 'Traefik exposes the web and websecure entrypoints.'
+}
+
+tls_phase_is_reconciled() {
+  "${KUBECTL[@]}" get application novashop-certificates \
+    --namespace "${ARGOCD_NAMESPACE}" >/dev/null 2>&1
+}
+
+# Reconciles the operator's expectation with the reconciled desired state. A
+# disagreement means bootstrap was invoked for a different phase than the one
+# Git declares, which must stop before any TLS assertion is attempted.
+resolve_edge_expectations() {
+  OBSERVED_EDGE_SOURCE_PATH="$(edge_source_path 'novashop-production')"
+
+  if [[ -z "${OBSERVED_EDGE_SOURCE_PATH}" ]]; then
+    log 'No edge phase is reconciled; skipping edge and TLS assertions.'
+  else
+    log "Reconciled edge phase: ${OBSERVED_EDGE_SOURCE_PATH}"
+    if [[ -n "${EXPECTED_EDGE_SOURCE_PATH}" \
+      && "${EXPECTED_EDGE_SOURCE_PATH}" != "${OBSERVED_EDGE_SOURCE_PATH}" ]]; then
+      die "Expected edge phase ${EXPECTED_EDGE_SOURCE_PATH} but GitOps reconciled ${OBSERVED_EDGE_SOURCE_PATH}. Resolve the disagreement in Git, not here."
     fi
-    sleep 5
-    elapsed=$((elapsed + 5))
-  done
+    assert_traefik_edge
+  fi
+
+  if tls_phase_is_reconciled; then
+    TLS_PHASE_ACTIVE=true
+  else
+    TLS_PHASE_ACTIVE=false
+  fi
+
+  if [[ -n "${ENABLE_TLS_VALIDATION}" \
+    && "${ENABLE_TLS_VALIDATION}" != "${TLS_PHASE_ACTIVE}" ]]; then
+    die "ENABLE_TLS_VALIDATION=${ENABLE_TLS_VALIDATION} disagrees with the reconciled state (certificates application present: ${TLS_PHASE_ACTIVE})."
+  fi
+
+  log "TLS phase active: ${TLS_PHASE_ACTIVE}"
 }
 
 wait_for_application_ready() {
@@ -103,6 +163,23 @@ wait_for_application_ready() {
   done
 }
 
+# A Secret that exists but is missing a key satisfies a presence check while
+# leaving workloads unable to start. Recovery must detect that state instead of
+# reporting success.
+runtime_secret_is_complete() {
+  local namespace="$1"
+  local secret_name="$2"
+  local key
+
+  for key in DATABASE_URL REDIS_URL; do
+    "${KUBECTL[@]}" get secret "${secret_name}" \
+      --namespace "${namespace}" \
+      --output="jsonpath={.data.${key}}" 2>/dev/null \
+      | grep --quiet . \
+      || return 1
+  done
+}
+
 ensure_runtime_secret() {
   local environment="$1"
   local namespace="novashop-${environment}"
@@ -115,6 +192,8 @@ ensure_runtime_secret() {
 
   if "${KUBECTL[@]}" get secret "${secret_name}" \
     --namespace "${namespace}" >/dev/null 2>&1; then
+    runtime_secret_is_complete "${namespace}" "${secret_name}" \
+      || die "Runtime Secret ${namespace}/${secret_name} exists but is missing DATABASE_URL or REDIS_URL. Delete it and rerun with the correct values."
     log "Runtime Secret ${namespace}/${secret_name} already exists."
     return
   fi
@@ -179,12 +258,9 @@ main() {
       "${ARGOCD_NAMESPACE}"
     wait_for_namespace "novashop-${environment}"
     ensure_runtime_secret "${environment}"
-    if [[ -n "${EXPECTED_EDGE_SOURCE_PATH}" ]]; then
-      wait_for_application_source_path \
-        "novashop-${environment}" \
-        "${EXPECTED_EDGE_SOURCE_PATH}"
-    fi
   done
+
+  resolve_edge_expectations
 
   for environment in "${ENVIRONMENTS[@]}"; do
     wait_for_resource "deployment/novashop-backend" "novashop-${environment}"
@@ -196,21 +272,24 @@ main() {
       deployment/novashop-frontend \
       --timeout="${WAIT_TIMEOUT}"
     wait_for_application_ready "novashop-${environment}"
-    if [[ -n "${EXPECTED_EDGE_SOURCE_PATH}" ]]; then
+
+    if [[ -n "${OBSERVED_EDGE_SOURCE_PATH}" ]]; then
       wait_for_resource \
         "ingress/novashop-public-http" \
         "novashop-${environment}"
+      # Every environment must reconcile the same phase; a split leaves one
+      # environment enforcing HTTPS while another serves plaintext.
+      [[ "$(edge_source_path "novashop-${environment}")" \
+        == "${OBSERVED_EDGE_SOURCE_PATH}" ]] \
+        || die "novashop-${environment} reconciled a different edge phase than novashop-production."
     fi
   done
 
   wait_for_application_ready "novashop-root"
 
-  if [[ "${ENABLE_TLS_VALIDATION}" == "true" ]]; then
+  if [[ "${TLS_PHASE_ACTIVE}" == "true" ]]; then
     wait_for_resource \
       "application/novashop-cert-manager" \
-      "${ARGOCD_NAMESPACE}"
-    wait_for_resource \
-      "application/novashop-certificates" \
       "${ARGOCD_NAMESPACE}"
     wait_for_namespace "cert-manager"
 

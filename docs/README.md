@@ -6,6 +6,11 @@ official deployment paths.
 ## Platform Delivery
 
 - [GitOps Architecture](GITOPS_ARCHITECTURE.md)
+- [Platform Guardrails](PLATFORM_GUARDRAILS.md)
+- [Guardrail Validation Checklist](guardrails/validation-checklist.md)
+- [Disaster Recovery](recovery/disaster-recovery.md)
+- [Guardrail, bootstrap, release, recovery, and GitOps flows](../diagrams/PLATFORM_GUARDRAILS.md)
+- [ADR 001: Platform Guardrails](../adr/001-platform-guardrails.md)
 
 ### Deployment Target A: Docker Desktop Kubernetes
 
