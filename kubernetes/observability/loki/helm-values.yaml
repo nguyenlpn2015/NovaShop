@@ -1,0 +1,138 @@
+# Loki for the NovaShop platform.
+#
+# Single-binary mode on filesystem storage. The chart defaults to SimpleScalable
+# with three component groups, a gateway, and two memcached caches whose default
+# memory requests alone exceed the memory this whole node has free. Everything
+# not needed for one node and one tenant is disabled explicitly below rather
+# than left to defaults.
+#
+# Retention is 5 days, enforced by the compactor. Without retention_enabled the
+# compactor never deletes and the volume fills silently, which on this node
+# would take the database down with it.
+
+deploymentMode: SingleBinary
+
+loki:
+  # One tenant. Multi-tenancy would require every client to send X-Scope-OrgID
+  # and buys nothing here.
+  auth_enabled: false
+
+  commonConfig:
+    replication_factor: 1
+
+  storage:
+    type: filesystem
+
+  schemaConfig:
+    configs:
+      - from: "2024-04-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+  limits_config:
+    retention_period: 120h
+    # A single misbehaving pod must not be able to fill the volume.
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+    max_query_series: 5000
+    reject_old_samples: true
+    reject_old_samples_max_age: 24h
+    volume_enabled: true
+
+  compactor:
+    working_directory: /var/loki/compactor
+    retention_enabled: true
+    delete_request_store: filesystem
+    compaction_interval: 10m
+    retention_delete_delay: 1h
+
+  analytics:
+    reporting_enabled: false
+
+  server:
+    http_listen_port: 3100
+    grpc_listen_port: 9095
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: local-path
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 384Mi
+
+# Scalable-mode component groups. Running any of them alongside singleBinary
+# would duplicate the ingester and corrupt the index.
+write:
+  replicas: 0
+read:
+  replicas: 0
+backend:
+  replicas: 0
+
+# An nginx gateway in front of a single-tenant, in-cluster Loki adds a pod and
+# a hop for no benefit; Grafana addresses the service directly.
+gateway:
+  enabled: false
+
+# Both default to memcached deployments sized for a cluster many times larger
+# than this node.
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Synthetic log generator and its checks. Useful at scale, pure cost here.
+lokiCanary:
+  enabled: false
+
+test:
+  enabled: false
+
+# Object storage emulator. Filesystem storage is in use.
+minio:
+  enabled: false
+
+# The chart's bundled self-monitoring would install a second Alloy and a second
+# set of rules. Loki is scraped by the platform Prometheus instead.
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  serviceMonitor:
+    enabled: false
+  lokiCanary:
+    enabled: false
+
+serviceAccount:
+  create: true
+
+# The rules sidecar ships without resource requests. It watches for Loki
+# alerting rules in ConfigMaps; none exist yet, but the container runs either
+# way, and an unbounded container is what the budget exists to prevent.
+sidecar:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# Scraped by the existing annotation-based job rather than a dedicated one.
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3100"
+    prometheus.io/path: /metrics

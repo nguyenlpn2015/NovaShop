@@ -71,6 +71,14 @@ datasources:
         isDefault: true
         jsonData:
           timeInterval: 30s
+      - name: Loki
+        type: loki
+        uid: novashop-loki
+        access: proxy
+        url: http://novashop-loki.observability.svc.cluster.local:3100
+        jsonData:
+          # Loki runs single-tenant, so no X-Scope-OrgID header is sent.
+          maxLines: 1000
 
 # Dashboards are loaded from ConfigMaps carrying the grafana_dashboard label, so
 # each dashboard is a reviewable file in this repository.

@@ -29,6 +29,8 @@ readonly PROMETHEUS_CHART_VERSION="${PROMETHEUS_CHART_VERSION:-29.20.1}"
 readonly GRAFANA_CHART_VERSION="${GRAFANA_CHART_VERSION:-10.5.15}"
 readonly POSTGRES_EXPORTER_CHART_VERSION="${POSTGRES_EXPORTER_CHART_VERSION:-8.2.0}"
 readonly REDIS_EXPORTER_CHART_VERSION="${REDIS_EXPORTER_CHART_VERSION:-6.28.0}"
+readonly LOKI_CHART_VERSION="${LOKI_CHART_VERSION:-7.2.0}"
+readonly ALLOY_CHART_VERSION="${ALLOY_CHART_VERSION:-1.11.0}"
 readonly PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.2}"
 readonly OBSERVABILITY_DIR="${REPO_ROOT}/kubernetes/observability"
 readonly NAMESPACE="${OBSERVABILITY_NAMESPACE:-observability}"
@@ -150,6 +152,59 @@ render_charts() {
 
   render_exporter postgres "${POSTGRES_EXPORTER_CHART_VERSION}"
   render_exporter redis "${REDIS_EXPORTER_CHART_VERSION}"
+  render_grafana_chart loki "${LOKI_CHART_VERSION}"
+  render_grafana_chart alloy "${ALLOY_CHART_VERSION}"
+}
+
+render_grafana_chart() {
+  local name="$1"
+  local version="$2"
+  local values="${OBSERVABILITY_DIR}/${name}/helm-values.yaml"
+
+  [[ -f "${values}" ]] || { fail "${name} values exist" "Missing ${values}."; return; }
+
+  if helm template "novashop-${name}" "grafana/${name}" \
+    --version "${version}" \
+    --namespace "${NAMESPACE}" \
+    --values "${values}" \
+    >"${TEMPORARY_DIRECTORY}/${name}.yaml" \
+    2>"${TEMPORARY_DIRECTORY}/${name}.err"; then
+    pass "${name} chart ${version} renders"
+  else
+    fail "${name} chart ${version} renders" \
+      "$(cat "${TEMPORARY_DIRECTORY}/${name}.err")"
+  fi
+}
+
+# The Loki chart defaults to a scalable deployment with two memcached caches
+# whose default memory requests alone exceed what this node has free, plus a
+# gateway, a canary, and a MinIO instance. Each is disabled deliberately, and a
+# chart upgrade that quietly reintroduces one would exhaust the node.
+check_loki_is_single_binary() {
+  local rendered="${TEMPORARY_DIRECTORY}/loki.yaml"
+  local unwanted
+
+  [[ -s "${rendered}" ]] || return 0
+
+  unwanted="$(
+    grep -hoE 'novashop-loki-(chunks-cache|results-cache|gateway|canary|minio)[a-z-]*' \
+      "${rendered}" | sort -u || true
+  )"
+
+  if [[ -z "${unwanted}" ]]; then
+    pass 'loki renders without caches, gateway, canary, or minio'
+  else
+    fail 'loki renders without caches, gateway, canary, or minio' "${unwanted}"
+  fi
+
+  # Without compactor retention Loki never deletes, and the volume fills
+  # silently on a node that also hosts the database.
+  if grep -qE 'retention_enabled:[[:space:]]*true' "${rendered}"; then
+    pass 'loki compactor retention is enabled'
+  else
+    fail 'loki compactor retention is enabled' \
+      'The volume would fill and never be reclaimed.'
+  fi
 }
 
 render_exporter() {
@@ -313,7 +368,9 @@ check_resources_are_bounded() {
     "${PYTHON}" - "${TEMPORARY_DIRECTORY}/prometheus.yaml" \
       "${TEMPORARY_DIRECTORY}/grafana.yaml" \
       "${TEMPORARY_DIRECTORY}/postgres-exporter.yaml" \
-      "${TEMPORARY_DIRECTORY}/redis-exporter.yaml" <<'PY'
+      "${TEMPORARY_DIRECTORY}/redis-exporter.yaml" \
+      "${TEMPORARY_DIRECTORY}/loki.yaml" \
+      "${TEMPORARY_DIRECTORY}/alloy.yaml" <<'PY'
 import sys, yaml
 
 offenders = []
@@ -364,6 +421,7 @@ main() {
     check_traefik_uses_pod_discovery
   fi
   check_exporters_are_discoverable
+  check_loki_is_single_binary
   check_resources_are_bounded
 
   if (( FAIL_COUNT > 0 )); then
