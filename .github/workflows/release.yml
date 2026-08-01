@@ -41,8 +41,15 @@ jobs:
       contents: read
       packages: write
     strategy:
-      # A partial release must never leave one component ahead of the other.
-      fail-fast: true
+      # Every component is scanned and reported even when a sibling fails.
+      # Cancelling the matrix hid whether the backend was clean across three
+      # consecutive blocked releases, turning one diagnosis into three.
+      #
+      # This does not weaken the release contract. Commit tags are immutable and
+      # independent, so a published tag cannot leave one component "ahead" of
+      # another; only `latest` moves, and the promote job below still requires
+      # the whole matrix to have succeeded before it does.
+      fail-fast: false
       matrix:
         component:
           - backend
