@@ -163,13 +163,53 @@ Both exporters are collected by annotation discovery rather than a dedicated
 scrape job, and `validate-observability.sh` asserts the annotation is present —
 a Service that loses it keeps serving metrics nobody reads.
 
+## Logs (Phase 5)
+
+| Component | Chart | Role |
+|---|---|---|
+| Loki | `loki` 7.2.0 | Single binary, filesystem storage, 5 day retention, 2Gi |
+| Grafana Alloy | `alloy` 1.11.0 | DaemonSet collecting container and journal logs |
+
+Alloy replaces **both** Promtail and the OpenTelemetry Collector from the
+original stack list. Promtail reached end of life in March 2026, and Alloy
+performs both roles, so one DaemonSet does the work of two on a node whose
+memory limits are already committed past 100%. This is one fewer technology than
+planned, not one more. Reasoning and rejected alternatives are in
+[ADR 004](../../adr/004-log-collection-agent.md).
+
+Three sources are collected:
+
+| Source | Mechanism | Covers |
+|---|---|---|
+| Container logs | Kubernetes API (`loki.source.kubernetes`) | Application, Traefik, Argo CD, cert-manager, every pod |
+| Node journal | `/var/log/journal` mount | k3s, systemd units, kernel |
+| Kubernetes metadata | relabelling | namespace, pod, container, app, component |
+
+Container logs are read through the API rather than from host paths, so pod log
+collection needs no hostPath mount and stays inside RBAC. Journald has no such
+option and requires the mount.
+
+Each agent filters to pods on **its own node**. Without that filter every member
+of the DaemonSet would collect every pod, and each line would be stored once per
+node.
+
+Labels are kept deliberately low cardinality. Anything derived from a request, a
+trace identifier, or a user belongs in the log line, not in a label: every
+distinct label combination is a separate stream in Loki.
+
+The Loki chart defaults are aggressive for this node — a scalable deployment,
+two memcached caches whose default requests alone exceed the free memory here, a
+gateway, a canary, and MinIO. All are disabled, and
+`validate-observability.sh` fails if a chart upgrade reintroduces any of them.
+Compactor retention is asserted for the same reason: without it Loki never
+deletes and the volume fills silently on a node that also hosts the database.
+
 ## What is still missing after this phase
 
 | Gap | Arrives in |
 |---|---|
 | Application metrics (`/metrics` returns 404 today) | Phase 6 |
 | kube-scheduler, kube-controller-manager, kube-proxy | Phase 4, needs a k3s flag change and an ADR |
-| Logs | Phase 5 |
 | Traces | Phase 7 |
 | Alerting | Phase 9 |
 

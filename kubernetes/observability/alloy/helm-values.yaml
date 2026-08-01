@@ -1,0 +1,161 @@
+# Grafana Alloy: the log collection agent for the NovaShop platform.
+#
+# Alloy replaces both Promtail and the OpenTelemetry Collector from the original
+# Sprint 5.1 stack list. Two independent reasons, recorded in
+# adr/004-log-collection-agent.md:
+#
+#   Promtail reached end of life in March 2026. Shipping an agent that receives
+#   no further fixes into a portfolio platform is not defensible.
+#
+#   Alloy performs both roles. It collects logs today and terminates OTLP for
+#   traces in Phase 7, so one DaemonSet does the work of two workloads on a node
+#   whose memory limits are already committed past 100%.
+#
+# This is one fewer technology than the original plan, not one more.
+
+controller:
+  type: daemonset
+
+alloy:
+  # Container logs are read through the Kubernetes API rather than from host
+  # paths, so the agent needs no hostPath mount for them and cannot read files
+  # outside what its RBAC allows. Journald is the one exception below.
+  mounts:
+    varlog: true
+    dockercontainers: false
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  # The UI is a debugging aid, not a service. It stays off the network.
+  listenAddr: 127.0.0.1
+
+  configMap:
+    create: true
+    content: |-
+      // ---------------------------------------------------------------
+      // Container logs, read via the Kubernetes API.
+      // ---------------------------------------------------------------
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // Only pods scheduled on this node. Each DaemonSet member collects its
+      // own node; without this every agent would collect every pod and the
+      // logs would be stored once per node.
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          regex         = sys.env("HOSTNAME_NODE")
+          action        = "keep"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_component"]
+          target_label  = "component"
+        }
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.containers.receiver]
+      }
+
+      // Labels must stay low cardinality. Anything derived from a request, a
+      // trace id, or a user identifier belongs in the log line, not in a label:
+      // every distinct label combination is a separate stream in Loki.
+      loki.process "containers" {
+        stage.static_labels {
+          values = {
+            source  = "kubernetes",
+            cluster = "novashop-k3s",
+          }
+        }
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // ---------------------------------------------------------------
+      // System logs from the node journal.
+      // ---------------------------------------------------------------
+      loki.source.journal "system" {
+        max_age    = "12h"
+        path       = "/var/log/journal"
+        forward_to = [loki.process.system.receiver]
+        labels     = {
+          source  = "journal",
+          cluster = "novashop-k3s",
+        }
+      }
+
+      loki.process "system" {
+        stage.labels {
+          values = {
+            unit = "__journal__systemd_unit",
+          }
+        }
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // ---------------------------------------------------------------
+      // Delivery.
+      // ---------------------------------------------------------------
+      loki.write "default" {
+        endpoint {
+          url = "http://novashop-loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+        }
+        // A restart must not replay half a day of logs.
+        external_labels = {}
+      }
+
+  extraEnv:
+    # Used by the node filter above so each agent collects only local pods.
+    - name: HOSTNAME_NODE
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+
+# Reading pod logs through the API requires the pods/log subresource.
+rbac:
+  create: true
+
+# Scraped by the existing annotation-based job.
+service:
+  enabled: true
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "12345"
+    prometheus.io/path: /metrics
+
+serviceMonitor:
+  enabled: false
+
+configReloader:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 48Mi
