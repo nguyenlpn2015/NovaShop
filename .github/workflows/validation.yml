@@ -260,3 +260,11 @@ jobs:
             --app-dir app \
             --gitops-dir gitops \
             --scope all
+
+      # Rendering and schema validation cannot detect a scrape job whose relabel
+      # rules match nothing: it renders, validates, deploys, and collects zero
+      # series while looking exactly like a healthy system. This asserts the
+      # generated Prometheus configuration under promtool and checks that every
+      # scrape job the platform depends on is still present by name.
+      - name: Validate observability desired state
+        run: bash app/scripts/validate-observability.sh

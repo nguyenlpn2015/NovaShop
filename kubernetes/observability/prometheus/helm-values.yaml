@@ -1,0 +1,181 @@
+# Prometheus, kube-state-metrics, and node-exporter for the NovaShop platform.
+#
+# The Prometheus Operator and kube-prometheus-stack are deliberately not used.
+# That stack ships roughly ten CRDs and a default rule set written for
+# multi-node clusters with an external etcd. On a single-node k3s using SQLite
+# most of those rules alert on conditions that cannot exist here, and the
+# operator's memory cost is not affordable on a node whose limits are already
+# committed past 100%. Scrape configuration is therefore explicit and reviewable
+# in this file, and every rule added later is one someone chose.
+#
+# Resource figures come from measured headroom on the node: ~7.9Gi allocatable
+# with requests at 31% and limits already at 119%. Every component below sets
+# both a request and a limit so observability can never starve the workloads it
+# is meant to observe.
+
+# The sidecar that reloads Prometheus when its ConfigMap changes ships without
+# resource requests. An unbounded container on a node already committed past
+# 100% of its memory limits is exactly what the budget exists to prevent.
+configmapReload:
+  prometheus:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 24Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+server:
+  replicaCount: 1
+
+  # Prometheus is the only component here that must survive a restart with its
+  # history intact; local-path is the sole StorageClass on this node.
+  persistentVolume:
+    enabled: true
+    size: 3Gi
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+
+  # 7 days at a 30s interval fits the 3Gi volume with room to spare. The node
+  # has 15G free in total and hosts the database as well, so retention is a
+  # budget rather than a default.
+  retention: 7d
+  retentionSize: 2GB
+
+  global:
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    evaluation_interval: 30s
+    external_labels:
+      cluster: novashop-k3s
+      node: sd-tempo-mcp
+
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
+
+  service:
+    type: ClusterIP
+
+  # Grafana reaches Prometheus in-cluster. Exposing it publicly would put an
+  # unauthenticated query and admin surface on the internet.
+  ingress:
+    enabled: false
+
+# Alertmanager arrives with the alert rules in a later phase. Installing it now
+# would run a component that has nothing to route.
+alertmanager:
+  enabled: false
+
+# Nothing pushes metrics. The gateway would be an unauthenticated write endpoint
+# for no current benefit.
+prometheus-pushgateway:
+  enabled: false
+
+# Object state: Deployment replica counts, pod phase, PVC capacity, certificate
+# resources. This does not duplicate metrics-server, which reports live usage
+# for the Metrics API and exposes no Prometheus series of that kind.
+kube-state-metrics:
+  enabled: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 48Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  # cert-manager resources are surfaced here so certificate expiry can be
+  # alerted on from object state as well as from the cert-manager exporter.
+  extraArgs:
+    - --custom-resource-state-only=false
+
+# Linux node metrics. No node_exporter existed on this host before.
+prometheus-node-exporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+
+# The chart defines a pushgateway scrape job regardless of whether the subchart
+# is installed. Left enabled it would poll a Service that does not exist and
+# report a permanently down target, which trains operators to ignore red.
+scrapeConfigs:
+  prometheus-pushgateway:
+    enabled: false
+
+# Scrape targets that carry no prometheus.io annotations and are therefore not
+# discovered by the chart's annotation-based jobs. Every endpoint below was
+# confirmed to answer before being added; the series counts are recorded in
+# docs/observability/architecture.md.
+extraScrapeConfigs: |
+  - job_name: argocd
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - argocd
+    relabel_configs:
+      # Argo CD exposes one metrics port per component, each named "metrics".
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: component
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: cert-manager
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - cert-manager
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: (http-metrics|metrics)
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: component
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: traefik
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - kube-system
+    relabel_configs:
+      # Traefik publishes metrics on the pod only. Its Service exposes web and
+      # websecure and nothing else, so an endpoints-based job silently collects
+      # zero series. This must stay pod-based.
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: traefik
+      - source_labels: [__meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: metrics
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - target_label: component
+        replacement: traefik

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/name: observability
+    app.kubernetes.io/component: platform
+    app.kubernetes.io/part-of: novashop
+    app.kubernetes.io/managed-by: argocd
+    # node-exporter needs the host network and host filesystem mounts to report
+    # anything about the node, which the restricted profile forbids. The
+    # workloads placed here are platform components from pinned upstream charts,
+    # not application code, and the namespace holds no application workload.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+  annotations:
+    argocd.argoproj.io/sync-wave: "-25"
