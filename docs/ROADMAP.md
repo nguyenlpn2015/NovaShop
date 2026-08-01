@@ -33,7 +33,6 @@ Each is a known gap with a known fix. Ordered by value per unit of effort.
 | # | Item | Note |
 |---|---|---|
 | 1 | Alert routing to a real destination | The largest single gap. Fourteen alerts that page nobody are diagnostics, not alerting. Needs a Secret and an on-call decision — [alerts.md](observability/alerts.md) has the exact change. |
-| 2 | ACME contact email | Free second line of defence behind `CertificateExpiring`. Needs a monitored mailbox. |
 | 3 | Rotate node credentials, enforce SSH keys | The only genuinely open security item — [hardening.md](security/hardening.md) |
 | 4 | Remove the duplicate `push` CI trigger | Halves CI cost; removes a real source of confusion |
 | 5 | Remove the duplicate Traefik scrape | Requires overriding a chart default scrape job. Combine with #6. |
