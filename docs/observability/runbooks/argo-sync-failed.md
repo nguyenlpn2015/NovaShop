@@ -44,19 +44,40 @@ ancestor of `origin/main` precisely to prevent this.
 place, such as a StatefulSet's volumeClaimTemplate. The object must be deleted and
 recreated; Argo CD will not do that on its own.
 
-**A chart sending a field's default value.** The subtlest of the four, and the one
-that looks most like a bug in Argo CD. If a chart templates a field explicitly at
-the value Kubernetes treats as its default, the API server stores nothing and
-reads the field back absent. Argo CD then compares a desired field against a live
-object that does not have it and can never converge: the sync succeeds, self-heal
-reapplies, and the difference survives.
+**A field the server-side apply dry-run cannot predict.** The subtlest of the four,
+and the one that looks most like a bug in Argo CD.
 
-The Alertmanager StatefulSet did this with `minReadySeconds: 0`.
+When an Application syncs with `ServerSideApply`, the comparison that decides sync
+status is **not** the desired manifest against the live object. It is a server-side
+apply *dry-run* against the live object. If Kubernetes adds a field that the
+dry-run does not reproduce, that field exists in live, is missing from the
+prediction, and never converges: the sync reports Succeeded, self-heal reapplies,
+and the difference survives every attempt.
 
-`ignoreDifferences` does **not** fix this, which is worth knowing before spending
-an afternoon on it. Its normalizer removes the path from the live state, where the
-path is already absent, so it does nothing; the target keeps the field. Confirm by
-reading all four states from the API rather than guessing:
+The Alertmanager StatefulSet does this. Kubernetes fills in `apiVersion` and
+`kind` on a `volumeClaimTemplate`; the dry-run does not. Loki is the control that
+proves the mechanism — same shape, same `syncOptions`, same two fields live, and
+Synced, because the Loki chart templates that TypeMeta explicitly while the
+prometheus chart does not.
+
+`ignoreDifferences` on the two paths is the fix. It is in the Application in the
+GitOps repository.
+
+## Diff the right pair of states
+
+This is the part that costs hours if you get it wrong. Under `ServerSideApply`,
+`helm template | diff` — desired against live — is **not** the comparison Argo CD
+uses, and it can report zero differences on an Application that is OutOfSync:
+
+```
+target    vs normalizedLive   0 differences
+predicted vs normalizedLive   2 differences   <- this decides sync status
+```
+
+Reading the wrong pair on this platform produced two consecutive wrong fixes, one
+of which changed a runtime setting that was never involved.
+
+Read all four states from the API:
 
 ```sh
 SIP=$(sudo k3s kubectl -n argocd get svc argocd-server -o jsonpath='{.spec.clusterIP}')
@@ -68,15 +89,32 @@ curl -sk -H "Authorization: Bearer $TOKEN" \
   "https://${SIP}/api/v1/applications/<app>/managed-resources"
 ```
 
-Compare `targetState` against `normalizedLiveState`. Anything showing `target:
-<absent>` is a server default and Argo CD ignores it; a field with a value in the
-target and absent in the live state is the real difference. `predictedLiveState`
-is a server-side apply dry-run, so if the field is missing there too, applying the
-target will not produce it and no amount of re-syncing will help.
+Compare **`predictedLiveState` against `normalizedLiveState`**. Any field differing
+between those two is a real difference; anything that differs only between
+`targetState` and the live object is almost always a server default that Argo CD
+already ignores. Add the differing paths to `ignoreDifferences` on the Application.
 
-The fix is to make the field round-trip: set it to a value that is not the API
-default. See the comment on `minReadySeconds` in
-`kubernetes/observability/prometheus/alerting-values.yaml`.
+## Testing a fix against a live Application
+
+Every Application here is managed by `novashop-root` with `selfHeal` enabled, so a
+`kubectl patch` is reverted within about three minutes — usually before the
+comparison has been recomputed. A patch that appears to change nothing has very
+likely just been reverted.
+
+Pause self-heal for the duration, and restore it immediately afterwards:
+
+```sh
+sudo k3s kubectl -n argocd patch application novashop-root --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}'
+
+# ... patch the child Application, annotate refresh=hard, wait, read status ...
+
+sudo k3s kubectl -n argocd patch application novashop-root --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":true}}}}'
+```
+
+An inconclusive experiment is not a negative result. Reading "unchanged" from a
+reverted patch is how a working fix gets discarded.
 
 ## Fix
 
