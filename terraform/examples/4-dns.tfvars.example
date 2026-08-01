@@ -1,0 +1,36 @@
+# Layer 4 — DNS.
+#
+#   export TF_VAR_cloudflare_api_token=...   # Zone:DNS:Edit on this zone only
+
+cloudflare_zone_id = "00000000000000000000000000000000"
+zone_name          = "smartdev.vn"
+
+# The FortiGate DNATs 80 and 443 from here to the node.
+site_public_ip = "203.0.113.10"
+
+# All four resolve to the same address; separation is by Host header at Traefik.
+#
+# acme_required marks names that must answer HTTP-01 on port 80. It drives the
+# acme_reachable_fqdns output, which verification asserts against.
+records = {
+  "novashop" = {
+    comment       = "Production frontend"
+    acme_required = true
+  }
+  "api.novashop" = {
+    comment       = "Production backend"
+    acme_required = true
+  }
+  "staging.novashop" = {
+    comment       = "Staging"
+    acme_required = true
+  }
+  "dev.novashop" = {
+    comment       = "Development"
+    acme_required = true
+  }
+}
+
+# Locked to false by a validation rule. Enabling the proxy breaks HTTP-01 silently and the
+# symptom appears up to sixty days later. Move the ClusterIssuer to DNS-01 first.
+proxied = false

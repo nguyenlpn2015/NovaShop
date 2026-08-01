@@ -1,0 +1,21 @@
+# Layer 2 — k3s.
+#
+#   export TF_VAR_ssh_private_key="$(cat ~/.ssh/novashop)"
+
+node_host = "10.10.1.45"
+node_user = "smartdev"
+
+k3s_version = "v1.33.13+k3s1"
+
+# These make the scheduler and controller-manager scrapable. Applying them restarts k3s,
+# which on a single node is a control-plane outage — schedule it.
+k3s_server_args = [
+  "--kube-scheduler-arg=bind-address=0.0.0.0",
+  "--kube-controller-manager-arg=bind-address=0.0.0.0",
+]
+
+# Empty on purpose. Traefik and local-path ship with k3s and are kept; disabling Traefik
+# leaves nothing to answer an HTTP-01 challenge. See ADR 007.
+disable_components = []
+
+kubeconfig_mode = "0600"

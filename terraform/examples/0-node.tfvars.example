@@ -1,0 +1,23 @@
+# Layer 0 — node.
+#
+# ssh_private_key is NOT here. Supply it through the environment:
+#   export TF_VAR_ssh_private_key="$(cat ~/.ssh/novashop)"
+
+node_host = "10.10.1.45"
+node_user = "smartdev"
+node_ip   = "10.10.1.45"
+
+pod_cidr = "10.42.0.0/16"
+
+# UFW stays disabled while this is null.
+#
+# Set it to a CIDR that actually covers your source address. The operator workstation on
+# this platform is 192.168.3.2, which is NOT inside 10.10.0.0/16 — a rule written for the
+# node's own subnet locks you out of the only node.
+management_cidr = null
+# management_cidr = "192.168.3.0/24"
+
+inotify_max_user_instances = 512
+inotify_max_user_watches   = 524288
+
+swap_enabled = false

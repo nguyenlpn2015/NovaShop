@@ -1,0 +1,44 @@
+# Layer 3 — GitHub.
+#
+#   export TF_VAR_github_token=...        # administration:write on both repositories
+
+github_owner   = "nguyenlpn2015"
+default_branch = "main"
+
+repositories = {
+  "NovaShop" = {
+    description = "Production-style DevOps platform: GitOps, guardrails, observability."
+    visibility  = "public"
+    topics      = ["fastapi", "nextjs"]
+  }
+  "NovaShop-GitOps" = {
+    description = "Desired state for the NovaShop platform."
+    visibility  = "public"
+    topics      = ["argocd"]
+  }
+}
+
+# These are the names GitHub reports, which are the rendered job names — not workflow file
+# names. A name that never reports blocks every merge.
+#
+# Verify against reality:
+#   gh api repos/OWNER/REPO/commits/main/check-runs --jq '.check_runs[].name' | sort -u
+required_status_checks = {
+  "NovaShop" = [
+    "Validate / Backend",
+    "Validate / Container Images",
+    "Validate / Frontend",
+    "Validate / Platform",
+    "Validate / Security",
+  ]
+  "NovaShop-GitOps" = [
+    "Validate / Platform",
+    "Validate / Security",
+  ]
+}
+
+require_pull_request_reviews = true
+
+# False by design: one operator, one node. A rule the operator cannot bypass during an
+# incident turns an outage into a longer outage.
+enforce_admins = false

@@ -1,0 +1,32 @@
+# Local state, as an override file.
+#
+# WHY AN OVERRIDE AND NOT A -backend-config FILE
+#
+# -backend-config supplies *arguments* to the backend type declared in code. It cannot
+# change the type. A layer declaring `backend "pg" {}` cannot be initialised as local by
+# passing a path, and trying produces:
+#
+#   Error: Backend initialization required ...
+#   Reason: Initial configuration of the requested backend "pg"
+#
+# Terraform merges any file named *_override.tf over the configuration, which is the
+# supported way to substitute a backend for a local run. Copy this file into the layer
+# directory as backend_override.tf:
+#
+#   cp ../../examples/backend-local-override.tf.example backend_override.tf
+#   terraform init
+#
+# backend_override.tf is git-ignored, so a local backend cannot be committed by accident.
+# Remove it and re-init with -migrate-state to move to PostgreSQL:
+#
+#   rm backend_override.tf
+#   terraform init -migrate-state -backend-config=../../examples/backend-pg.hcl
+#
+# Used during bootstrap, during a rebuild, and any time a layer must run before PostgreSQL
+# exists. No locking — acceptable with one operator, since there is nobody to race.
+
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}
