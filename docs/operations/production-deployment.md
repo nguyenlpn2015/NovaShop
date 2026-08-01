@@ -151,7 +151,6 @@ capability — see [Disaster Recovery](../recovery/disaster-recovery.md).
 | Task | Where |
 |---|---|
 | Apply branch protection to both repositories | `scripts/apply-branch-protection.sh` |
-| Set an ACME contact email | Open item in [TLS Flow](../architecture/tls-flow.md) |
 | Rotate the node password, move to SSH keys | [Hardening](../security/hardening.md) |
 | Configure alert routing | [Alerts](../observability/alerts.md) |
 

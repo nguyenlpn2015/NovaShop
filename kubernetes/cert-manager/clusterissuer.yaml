@@ -9,6 +9,15 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # Let's Encrypt sends expiry warnings here, which is a second line of defence
+    # behind the CertificateExpiring alert and costs nothing. It must be a mailbox
+    # somebody actually reads; an unmonitored address is worse than none, because it
+    # looks like coverage.
+    #
+    # Adding an address to an existing ACME account updates the registration. It does
+    # not issue a certificate, so it does not spend any of the five duplicate
+    # certificates per 168 hours.
+    email: nguyen.lephuoc@smartdev.com
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
@@ -29,6 +38,15 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
+    # Let's Encrypt sends expiry warnings here, which is a second line of defence
+    # behind the CertificateExpiring alert and costs nothing. It must be a mailbox
+    # somebody actually reads; an unmonitored address is worse than none, because it
+    # looks like coverage.
+    #
+    # Adding an address to an existing ACME account updates the registration. It does
+    # not issue a certificate, so it does not spend any of the five duplicate
+    # certificates per 168 hours.
+    email: nguyen.lephuoc@smartdev.com
     privateKeySecretRef:
       name: letsencrypt-production-account-key
     solvers:
