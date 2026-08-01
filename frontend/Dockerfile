@@ -23,6 +23,22 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
+# The standalone server starts with `node server.js`, so no package manager is
+# needed at runtime. npm, corepack, and yarn each vendor their own dependency
+# tree into the image, and those trees are the only source of the CRITICAL and
+# HIGH findings this image reports. Removing them fixes the scan at its cause
+# and drops a large amount of unused, network-capable tooling from a container
+# that serves public traffic.
+RUN rm -rf \
+      /usr/local/lib/node_modules/npm \
+      /usr/local/lib/node_modules/corepack \
+      /opt/yarn-v1.22.22 \
+      /usr/local/bin/npm \
+      /usr/local/bin/npx \
+      /usr/local/bin/corepack \
+      /usr/local/bin/yarn \
+      /usr/local/bin/yarnpkg
+
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
