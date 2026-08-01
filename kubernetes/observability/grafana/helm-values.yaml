@@ -1,0 +1,95 @@
+# Grafana for the NovaShop platform.
+#
+# Access is by port-forward for now. Publishing Grafana would require a DNS
+# record, a certificate, and an authentication decision, none of which belong in
+# a change whose purpose is to start collecting metrics. See
+# docs/observability/architecture.md for the follow-up.
+
+replicas: 1
+
+# Dashboards and datasources are provisioned from files in Git. Nothing is
+# created through the UI, because a dashboard that exists only in the database
+# is lost when the volume is lost and cannot be reviewed in a pull request.
+persistence:
+  enabled: true
+  size: 512Mi
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+# The admin password is supplied by a Secret created outside Git, in the same
+# way the runtime database credentials are. An inline password here would be
+# committed in clear text.
+admin:
+  existingSecret: novashop-grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+
+grafana.ini:
+  server:
+    root_url: http://localhost:3000/
+  analytics:
+    reporting_enabled: false
+    check_for_updates: false
+  users:
+    allow_sign_up: false
+  auth.anonymous:
+    enabled: false
+  log:
+    mode: console
+    level: info
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: novashop-prometheus
+        access: proxy
+        url: http://novashop-prometheus-server.observability.svc.cluster.local
+        isDefault: true
+        jsonData:
+          timeInterval: 30s
+
+# Dashboards are loaded from ConfigMaps carrying the grafana_dashboard label, so
+# each dashboard is a reviewable file in this repository.
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    searchNamespace: observability
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+
+testFramework:
+  enabled: false
