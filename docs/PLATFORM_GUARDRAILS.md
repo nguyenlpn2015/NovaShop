@@ -48,6 +48,7 @@ Everything else works offline.
 | Kubernetes and CRD schema validation | both repositories | `validate-platform.sh` |
 | Secret scanning | both repositories | Trivy `secret` scanner, GitHub push protection |
 | Cross-repository revision durability | GitOps | `validate-gitops-revisions.sh` |
+| Runtime version alignment | application | `validate-platform.sh` |
 
 ### Revision durability
 
@@ -67,6 +68,24 @@ The same script also requires that each environment deploys backend and frontend
 from one source commit, that no desired state references `latest`, and that every
 referenced tag actually exists in GHCR. A missing tag is reported at review time
 rather than as `ImagePullBackOff` after a merge.
+
+### Runtime version alignment
+
+Each language runtime is declared in three independent places: the base image
+that ships to production, the version CI installs, and the constraint the package
+manifest advertises. Nothing previously required them to agree.
+
+That gap is not theoretical. The first Dependabot batch proposed raising the
+frontend base image from Node 22 to Node 26 and the backend base image from
+Python 3.12 to 3.14. Both pull requests passed every existing check, because CI
+kept testing on the old runtime while the published image would have shipped the
+new one. The divergence would only have surfaced in production.
+
+The gate now requires the Node major to match across `frontend/Dockerfile`, the
+workflow `NODE_VERSION`, `engines.node`, and `@types/node`, and the Python minor
+to match across `backend/Dockerfile`, the workflow `PYTHON_VERSION`, and
+`requires-python`. A runtime upgrade is still welcome; it simply has to move
+every declaration in one reviewed change.
 
 ### ApplicationSet source invariants
 

@@ -4,6 +4,15 @@ version: 2
 # security fixes unless something proposes the upgrade. Dependabot opens those
 # proposals as pull requests, which means every dependency change passes the same
 # validation gates as any other change to the platform.
+#
+# Two policies apply throughout.
+#
+# Minor and patch updates are grouped into one pull request per ecosystem. Major
+# updates stay individual, because a major is a decision rather than a refresh.
+#
+# `increase-if-necessary` stops Dependabot from widening a declared upper bound.
+# The default strategy turns `redis>=5.2,<6.0` into `redis>=5.2,<9.0`, which
+# silently discards the ceiling the constraint existed to provide.
 updates:
   # Action digests are pinned by SHA throughout the workflows. Without this,
   # a pinned digest would never be revisited.
@@ -16,27 +25,83 @@ updates:
       prefix: "chore(actions)"
     labels:
       - dependencies
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: pip
     directory: /backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
     commit-message:
       prefix: "chore(backend)"
     labels:
       - dependencies
+    groups:
+      backend:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
     commit-message:
       prefix: "chore(frontend)"
     labels:
       - dependencies
+    groups:
+      frontend:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # The frontend lint toolchain is coupled to the Next.js major version and
+      # cannot move one package at a time.
+      #
+      # eslint-config-next 15.x declares `eslint@^7.23.0 || ^8.0.0 || ^9.0.0`,
+      # so eslint 10 cannot be installed at all: `npm ci` fails to resolve.
+      # Only eslint-config-next 16.x relaxes that to `eslint>=9.0.0`, and 16.x
+      # belongs to Next.js 16 while this project is on Next.js 15.
+      #
+      # Adopting any of these majors therefore means performing the Next.js
+      # 15 to 16 migration deliberately, in one reviewed change that moves the
+      # framework, the shared config, and the linter together. Until then these
+      # proposals can only ever fail, so they are not raised.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint-config-next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      # TypeScript majors change type-checking behaviour across the whole code
+      # base and are adopted on their own schedule, not as a routine refresh.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # The Node type definitions must describe the Node major that actually
+      # runs the container. Raising them alone is caught by the runtime
+      # alignment check in scripts/validate-platform.sh; not raising them keeps
+      # the noise out of review entirely.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
+  # Base image majors are intentionally NOT ignored. A newer runtime should be
+  # visible. The runtime alignment check fails such a pull request until the
+  # workflow pin and the package manifest move with it, which is exactly the
+  # review that a runtime upgrade deserves.
   - package-ecosystem: docker
     directories:
       - /backend
@@ -48,3 +113,10 @@ updates:
       prefix: "chore(images)"
     labels:
       - dependencies
+    groups:
+      images:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

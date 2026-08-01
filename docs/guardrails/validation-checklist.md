@@ -61,6 +61,24 @@ export GITOPS_DIR='../NovaShop-GitOps'
       Confirm the summary reports Argo CD, cert-manager, and Traefik resources
       as valid rather than skipped.
 
+- [ ] Runtime declarations agree across the image, CI, and the manifest.
+
+  ```bash
+  bash scripts/validate-platform.sh --scope application --skip-lint
+  ```
+
+  Expect `Node.js major version is consistent` and
+  `Python minor version is consistent`.
+
+- [ ] The alignment check rejects a one-sided runtime bump.
+
+  ```bash
+  sed -i 's/^FROM node:22\.19-alpine/FROM node:26.4-alpine/' frontend/Dockerfile
+  bash scripts/validate-platform.sh --scope application --skip-lint \
+    && echo 'UNEXPECTED PASS' || echo 'correctly rejected'
+  git checkout -- frontend/Dockerfile
+  ```
+
 - [ ] Both default branches are protected.
 
   ```bash
