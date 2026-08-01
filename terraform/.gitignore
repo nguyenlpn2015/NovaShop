@@ -1,0 +1,26 @@
+# State. Contains resource attributes and, for some providers, credential material.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Provider plugins and local init data.
+.terraform/
+
+# Backend configuration holding a connection string with a password.
+backend-pg.hcl
+
+# Real variable values. Only *.tfvars.example is committed.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Saved plans. A plan file contains the full resource diff, including sensitive values.
+*.tfplan
+crash.log
+crash.*.log
+
+# Override files are for local experiments and must never be committed.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

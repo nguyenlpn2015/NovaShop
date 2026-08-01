@@ -40,6 +40,10 @@ env:
   KUSTOMIZE_SHA256: 029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d
   KUBECONFORM_VERSION: v0.7.0
   KUBECONFORM_SHA256: c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+  # Must match terraform/.terraform-version. State written by a newer Terraform
+  # cannot be read by an older one, so CI and the workstation drifting apart is a
+  # problem discovered at the worst moment.
+  TERRAFORM_VERSION: 1.9.8
 
 jobs:
   backend:
@@ -166,6 +170,64 @@ jobs:
           ignore-unfixed: true
           format: table
           exit-code: "1"
+
+  # Terraform codifies the platform outside the cluster: the node, the datastores,
+  # k3s, GitHub, and DNS. This job proves the configuration is well formed and
+  # internally consistent.
+  #
+  # It runs only for the application repository, because that is where the
+  # terraform/ directory lives, and it needs no credential of any kind:
+  # `-backend=false` stops init reaching a backend, and `validate` never
+  # configures a provider. A validation job that needed secrets could not run on a
+  # fork's pull request.
+  #
+  # `plan` is deliberately absent here and arrives in a later phase, where it will
+  # be posted for a reviewer to read. `apply` is never automated: on a single-node
+  # platform where Terraform holds DNS and the cluster seed, an automatic apply is
+  # a blast radius out of proportion to the convenience.
+  terraform:
+    name: Terraform
+    if: ${{ inputs.caller == 'application' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # Formatting is not cosmetic in HCL: an unformatted file is a signal the
+      # author never ran the toolchain locally, and a diff nobody can read hides
+      # the change that matters.
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff terraform
+
+      # Every layer is validated independently because each is a root module with
+      # its own provider requirements. Iterating means a new layer is covered the
+      # moment its directory exists, without editing this workflow.
+      - name: Validate every layer
+        run: |
+          set -Eeuo pipefail
+          failed=0
+          for layer in terraform/layers/*/; do
+            printf '\n=== %s ===\n' "${layer}"
+            if terraform -chdir="${layer}" init -backend=false -input=false -no-color \
+              && terraform -chdir="${layer}" validate -no-color; then
+              printf 'PASS %s\n' "${layer}"
+            else
+              printf 'FAIL %s\n' "${layer}"
+              failed=$((failed + 1))
+            fi
+          done
+          if (( failed > 0 )); then
+            printf '\n%d layer(s) failed validation.\n' "${failed}" >&2
+            exit 1
+          fi
 
   platform:
     name: Platform

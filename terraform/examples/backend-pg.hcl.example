@@ -1,0 +1,22 @@
+# PostgreSQL state backend — steady state.
+#
+# Copy to backend-pg.hcl, which is git-ignored. The connection string carries a password.
+#
+# Why PostgreSQL: there is no cloud account, PostgreSQL already runs on the node, it is
+# already in the platform backup, and the pg backend gives real state locking. It adds no
+# infrastructure.
+#
+# One schema per layer, so a mistaken destroy in one layer cannot reach another. Change
+# schema_name to match the layer being initialised:
+#
+#   terraform_node · terraform_datastores · terraform_k3s
+#   terraform_github · terraform_dns
+#
+# Prefer supplying conn_str through the PG_CONN_STR environment variable rather than this
+# file, so the password never lands on disk at all:
+#
+#   export PG_CONN_STR="postgres://terraform:PASSWORD@10.10.1.45:5432/terraform_state?sslmode=require"
+#   terraform init -backend-config=schema_name=terraform_github
+
+conn_str    = "postgres://terraform:CHANGE_ME@10.10.1.45:5432/terraform_state?sslmode=require"
+schema_name = "terraform_CHANGE_ME"

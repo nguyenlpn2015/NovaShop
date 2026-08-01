@@ -1,0 +1,24 @@
+# Layer 1 — datastores.
+#
+# postgres_superuser_password is NOT here:
+#   export TF_VAR_postgres_superuser_password=...
+
+postgres_host      = "10.10.1.45"
+postgres_port      = 5432
+postgres_superuser = "postgres"
+
+# require, not disable. If TLS is not configured on the instance yet, that should be a
+# visible failure rather than a silent plaintext connection.
+postgres_sslmode = "require"
+
+application_database = "novashop"
+application_role     = "novashop"
+exporter_role        = "novashop_exporter"
+
+# Must include the LAN address. Loopback alone is unreachable from pods, and every backend
+# readiness probe would fail.
+redis_bind_addresses = ["127.0.0.1", "10.10.1.45"]
+redis_port           = 6379
+
+# PostgreSQL 14 grants CREATE on public to PUBLIC; 15 removed it. Set false only on 15+.
+revoke_public_schema_create = true
