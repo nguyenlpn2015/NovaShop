@@ -382,6 +382,86 @@ validate_helm_renders() {
   done
 }
 
+# Reports a failure unless every supplied "source=version" pair agrees.
+assert_single_version() {
+  local label="$1"
+  shift
+  local -a declarations=("$@")
+  local versions
+  local distinct
+
+  versions="$(printf '%s\n' "${declarations[@]}" | sed 's/^[^=]*=//')"
+
+  if grep -qx '' <<<"${versions}"; then
+    fail "${label}" \
+      "A version could not be parsed:"$'\n'"$(printf '  %s\n' "${declarations[@]}")"
+    return
+  fi
+
+  distinct="$(sort --unique <<<"${versions}" | wc --lines)"
+  if (( distinct == 1 )); then
+    pass "${label} ($(head -n 1 <<<"${versions}"))"
+  else
+    fail "${label}" \
+      "Declarations disagree:"$'\n'"$(printf '  %s\n' "${declarations[@]}")"
+  fi
+}
+
+# A language runtime is declared in three independent places: the base image
+# that ships to production, the version CI installs, and the constraint the
+# package manifest advertises. A dependency bot can raise one of them on its
+# own, and every other check still passes while the published image runs a
+# runtime nothing ever tested. This makes that divergence a merge-blocking
+# error, so a runtime upgrade has to move all declarations together.
+validate_runtime_alignment() {
+  local workflow="${APP_DIR}/.github/workflows/validation.yml"
+  local frontend_dockerfile="${APP_DIR}/frontend/Dockerfile"
+  local backend_dockerfile="${APP_DIR}/backend/Dockerfile"
+  local frontend_manifest="${APP_DIR}/frontend/package.json"
+  local backend_manifest="${APP_DIR}/backend/pyproject.toml"
+  local path
+
+  for path in "${workflow}" "${frontend_dockerfile}" "${backend_dockerfile}" \
+    "${frontend_manifest}" "${backend_manifest}"; do
+    if [[ ! -r "${path}" ]]; then
+      fail 'runtime declarations are readable' "Missing ${path}."
+      return
+    fi
+  done
+
+  assert_single_version 'Node.js major version is consistent' \
+    "frontend/Dockerfile=$(
+      sed -nE 's/^FROM[[:space:]]+node:([0-9]+)\..*/\1/p' \
+        "${frontend_dockerfile}" | head -n 1
+    )" \
+    "workflow NODE_VERSION=$(
+      sed -nE 's/^[[:space:]]*NODE_VERSION:[[:space:]]*"?([0-9]+)\..*/\1/p' \
+        "${workflow}" | head -n 1
+    )" \
+    "package.json engines.node=$(
+      sed -nE 's/.*"node":[[:space:]]*"[^0-9]*([0-9]+)\..*/\1/p' \
+        "${frontend_manifest}" | head -n 1
+    )" \
+    "package.json @types/node=$(
+      sed -nE 's/.*"@types\/node":[[:space:]]*"[^0-9]*([0-9]+)\..*/\1/p' \
+        "${frontend_manifest}" | head -n 1
+    )"
+
+  assert_single_version 'Python minor version is consistent' \
+    "backend/Dockerfile=$(
+      sed -nE 's/^FROM[[:space:]]+python:([0-9]+\.[0-9]+)\..*/\1/p' \
+        "${backend_dockerfile}" | head -n 1
+    )" \
+    "workflow PYTHON_VERSION=$(
+      sed -nE 's/^[[:space:]]*PYTHON_VERSION:[[:space:]]*"?([0-9]+\.[0-9]+)\..*/\1/p' \
+        "${workflow}" | head -n 1
+    )" \
+    "pyproject requires-python=$(
+      sed -nE 's/^requires-python[[:space:]]*=[[:space:]]*"[^0-9]*([0-9]+\.[0-9]+).*/\1/p' \
+        "${backend_manifest}" | head -n 1
+    )"
+}
+
 collect_application_manifests() {
   find "${APP_DIR}/kubernetes" "${APP_DIR}/argocd" \
     -type f -name '*.yaml' \
@@ -495,6 +575,8 @@ main() {
   if [[ "${SKIP_LINT}" != "true" ]]; then
     lint_yaml "${APP_DIR}" "${GITOPS_DIR}"
   fi
+
+  validate_runtime_alignment
 
   if [[ "${SCOPE}" != "application" ]]; then
     validate_revisions
