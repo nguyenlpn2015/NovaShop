@@ -1,0 +1,65 @@
+# postgres_exporter for the host PostgreSQL instance.
+#
+# PostgreSQL runs on the node rather than in the cluster. Until Sprint 5.1
+# Phase 1 it listened on loopback only, which is why the original plan placed
+# this exporter on the host as a systemd unit. Phase 1 made the pod network a
+# permitted client, so the exporter runs here instead: managed by Argo CD,
+# versioned in Git, and with no host configuration to drift.
+#
+# The exporter authenticates as novashop_exporter, a dedicated role granted
+# pg_monitor and nothing else. It can read the statistics views and is denied
+# writes, which was verified against the running database rather than assumed.
+# Reusing the application role would have given a metrics collector write access
+# to production data.
+
+replicaCount: 1
+
+# The connection string lives in a Secret created outside Git, exactly as the
+# runtime database credentials are. Putting a DSN in values would commit a
+# password to the repository.
+config:
+  datasourceSecret:
+    name: novashop-datastore-exporter
+    key: postgres-dsn
+  # The server has ssl = on and the DSN requires it, so metrics collection does
+  # not travel the node network in clear text.
+  logLevel: warn
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9187
+  annotations:
+    # Discovered by the chart's kubernetes-service-endpoints job. No dedicated
+    # scrape job is needed, and none is added, because annotation discovery
+    # already covers a Service that exposes its metrics port.
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+    prometheus.io/path: /metrics
+
+serviceMonitor:
+  # The Prometheus Operator is not installed; scraping is by annotation.
+  enabled: false
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 96Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+automountServiceAccountToken: false

@@ -1,0 +1,58 @@
+# redis_exporter for the host Redis instance.
+#
+# Redis runs on the node, not in the cluster. Sprint 5.1 Phase 1 bound it beyond
+# loopback and enabled requirepass, so this exporter runs in-cluster under Argo CD
+# rather than as a systemd unit on the host.
+#
+# Redis 6.0 is deployed without ACL users, so the exporter authenticates with the
+# same requirepass value the application uses. Redis has no per-source
+# authorisation and no read-only role short of ACLs, so unlike PostgreSQL there
+# is no least-privilege credential to grant here. Introducing an ACL user with
+# +info +client|list and nothing else is a worthwhile follow-up.
+
+replicaCount: 1
+
+redisAddress: redis://10.10.1.45:6379
+
+auth:
+  enabled: true
+  # The password comes from a Secret created outside Git, in the same way the
+  # runtime credentials are.
+  secret:
+    name: novashop-datastore-exporter
+    key: redis-password
+
+service:
+  type: ClusterIP
+  port: 9121
+  annotations:
+    # Discovered by the chart's kubernetes-service-endpoints job, so no
+    # dedicated scrape job is added.
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9121"
+    prometheus.io/path: /metrics
+
+serviceMonitor:
+  # The Prometheus Operator is not installed; scraping is by annotation.
+  enabled: false
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 24Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 59000
+  runAsGroup: 59000
+  fsGroup: 59000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
