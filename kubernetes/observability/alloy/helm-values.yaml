@@ -32,8 +32,13 @@ alloy:
       cpu: 300m
       memory: 256Mi
 
-  # The UI is a debugging aid, not a service. It stays off the network.
-  listenAddr: 127.0.0.1
+  # Binding to loopback was an earlier attempt to keep the debug UI private. It
+  # broke two things at once: the kubelet readiness probe dials the pod IP, so
+  # the container never became ready, and the Prometheus scrape of Alloy's own
+  # metrics on the same port would have failed for the same reason.
+  #
+  # The default bind is cluster-internal. No Ingress rule routes port 12345, so
+  # the UI is not reachable from outside the cluster regardless.
 
   configMap:
     create: true

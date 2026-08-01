@@ -34,6 +34,8 @@ readonly ALLOY_CHART_VERSION="${ALLOY_CHART_VERSION:-1.11.0}"
 readonly PROMETHEUS_IMAGE="${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.2}"
 readonly OBSERVABILITY_DIR="${REPO_ROOT}/kubernetes/observability"
 readonly NAMESPACE="${OBSERVABILITY_NAMESPACE:-observability}"
+readonly DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET:-ubuntu-k3s}"
+GITOPS_DIR="${GITOPS_DIR:-}"
 
 # Every job the platform depends on. A job silently disappearing from the
 # rendered configuration is the regression this list exists to catch.
@@ -361,6 +363,54 @@ PY
   fi
 }
 
+# Argo CD refuses any resource kind absent from its AppProject whitelist, and it
+# refuses it at sync time — after review, after merge, with the Application
+# reporting Missing and no clue in the pull request. Loki failed exactly this
+# way: DaemonSet and PersistentVolumeClaim were whitelisted for the exporters,
+# StatefulSet was not, and the Loki single binary is a StatefulSet.
+check_kinds_are_permitted() {
+  local project="${GITOPS_DIR}/clusters/${DEPLOYMENT_TARGET}/phases/tls-baseline/platform-project.yaml"
+  local missing
+
+  if [[ -z "${GITOPS_DIR}" || ! -f "${project}" ]]; then
+    log 'AppProject not available; skipping kind permission check.'
+    return
+  fi
+
+  missing="$(
+    "${PYTHON}" - "${project}" "${TEMPORARY_DIRECTORY}" <<'PY'
+import glob, os, sys, yaml
+
+project_path, rendered_dir = sys.argv[1], sys.argv[2]
+project = yaml.safe_load(open(project_path, encoding="utf-8"))
+spec = project.get("spec", {})
+permitted = {
+    entry.get("kind")
+    for key in ("clusterResourceWhitelist", "namespaceResourceWhitelist")
+    for entry in (spec.get(key) or [])
+}
+
+rendered = set()
+for path in glob.glob(os.path.join(rendered_dir, "*.yaml")):
+    if os.path.basename(path).startswith(("cluster-", "phase-", "helm-")):
+        continue
+    for document in yaml.safe_load_all(open(path, encoding="utf-8")):
+        if document and document.get("kind"):
+            rendered.add(document["kind"])
+
+for kind in sorted(rendered - permitted):
+    print(kind)
+PY
+  )"
+
+  if [[ -z "${missing}" ]]; then
+    pass 'every rendered kind is permitted by the platform AppProject'
+  else
+    fail 'every rendered kind is permitted by the platform AppProject' \
+      "$(printf 'not whitelisted: %s\n' ${missing})"$'\n''Argo CD would refuse these at sync time, not at review time.'
+  fi
+}
+
 check_resources_are_bounded() {
   local unbounded
 
@@ -404,7 +454,35 @@ PY
   fi
 }
 
+usage() {
+  cat <<'EOF'
+Usage: validate-observability.sh [--gitops-dir DIR]
+
+  --gitops-dir DIR   Path to a NovaShop-GitOps checkout. Enables the AppProject
+                     permission check, which is skipped without it.
+EOF
+}
+
 main() {
+  while (( $# > 0 )); do
+    case "$1" in
+      --gitops-dir)
+        [[ $# -ge 2 ]] || die 'Option --gitops-dir requires a value.'
+        GITOPS_DIR="$2"
+        shift
+        ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        usage >&2
+        die "Unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
   require_command helm
   resolve_python
   require_command docker
@@ -422,6 +500,7 @@ main() {
   fi
   check_exporters_are_discoverable
   check_loki_is_single_binary
+  check_kinds_are_permitted
   check_resources_are_bounded
 
   if (( FAIL_COUNT > 0 )); then
