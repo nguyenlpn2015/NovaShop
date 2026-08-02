@@ -34,6 +34,7 @@ Measured on the running platform, not aspirational.
 | **15 minutes** | Add [Repository Audit](docs/AUDIT.md) — the honest scoring |
 | **You are interviewing me** | [Interview Guide](docs/INTERVIEW_GUIDE.md) — a walkthrough and the questions I expect |
 | **You are preparing to be interviewed** | [docs/interview/](docs/interview/) — teaching guide, 107 questions, cheat sheets |
+| **You want to learn this stack** | [NovaShop Academy](docs/academy/) — 19 modules taught from these files; 4 written so far |
 | **You want to run it** | [Local Development](docs/operations/local-development.md) |
 | **You want to judge the engineering** | [Engineering Log](docs/LEARNING_LOG.md) — the defects found, and how |
 
@@ -133,7 +134,7 @@ kubernetes/             Platform component values, ingress baselines, cert-manag
 terraform/              7 layers, non-cloud IaC
 argocd/                 Bootstrap manifests and the pinned Argo CD digest
 scripts/                Bootstrap, validation gates, backup, restore, recovery
-docs/                   82 documents — architecture, operations, runbooks, audits
+docs/                   88 documents — architecture, operations, runbooks, audits, academy
 diagrams/               Subsystem diagrams predating docs/architecture/
 .github/                CI, release, validation workflow, rulesets as JSON
 ```

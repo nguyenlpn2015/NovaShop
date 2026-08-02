@@ -13,6 +13,7 @@
 | Judge the engineering | [Repository Audit](AUDIT.md) |
 | Interview or demo this | [Interview Guide](INTERVIEW_GUIDE.md) — the 10-minute demo script |
 | Prepare for an interview | [interview/](interview/) — teaching guide, 107 questions, cheat sheets |
+| Learn the stack from these files | [academy/](academy/) — 19 modules, 4 written; the repository as textbook |
 | See what went wrong, and how it was found | [Engineering Log](LEARNING_LOG.md) |
 | Judge the Terraform | [Terraform Audit](TERRAFORM_AUDIT.md) |
 
