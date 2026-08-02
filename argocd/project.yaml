@@ -43,6 +43,28 @@ spec:
       kind: Service
     - group: networking.k8s.io
       kind: Ingress
+    # The chart has rendered four NetworkPolicies since the default-deny change,
+    # and this list did not permit them. Argo CD enforces the whitelist at sync
+    # time, so they rendered, validated, and merged, and were refused afterwards
+    # -- the same failure the Loki StatefulSet had. `assert_kinds_are_whitelisted`
+    # in validate-platform.sh now fails a pull request that renders a kind this
+    # list omits, so the refusal happens at review time instead.
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    # Alembic migrations run as an Argo CD PreSync hook, not at application
+    # startup: with more than one replica, startup migration means concurrent
+    # writers racing, and a failure leaves some replicas migrated and some not.
+    # A PreSync Job runs once and blocks the rollout when it fails.
+    - group: batch
+      kind: Job
+    # Declared ahead of use. Both arrive with the load-testing work, and adding
+    # them here costs nothing, whereas discovering the omission costs a sync
+    # failure after merge. This file is applied by scripts/bootstrap.sh rather
+    # than reconciled by Argo CD, so each change to it is a manual apply.
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
     - group: traefik.io
       kind: Middleware
   orphanedResources:
