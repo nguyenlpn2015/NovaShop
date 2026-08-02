@@ -1,0 +1,54 @@
+# Docker Desktop Kubernetes. Applied by scripts/deploy-local-k8s.ps1.
+#
+# The differences from the node are all consequences of one thing: there is no
+# public DNS, so there is no certificate, so there is no TLS.
+
+namespace:
+  create: false
+
+config:
+  environment: local
+  # In-cluster Service. The frontend fetches on the server, so this address is
+  # never sent to a browser.
+  backendUrl: http://novashop-backend
+
+# One replica each. Two would prove nothing locally and doubles the memory a
+# laptop spends on a demonstration.
+backend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Off. The rules admit the node network for kubelet probes, and Docker Desktop's
+# node network is not 10.10.1.0/24 -- enabling them here would take every replica
+# NotReady for a reason that has nothing to do with the policies being wrong.
+networkPolicy:
+  enabled: false
+
+migrations:
+  enabled: true
+  seed: true
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations: {}
+  frontendHost: novashop.local
+  backendHost: api.novashop.local
+  tls:
+    enabled: false

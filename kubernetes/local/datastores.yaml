@@ -1,0 +1,170 @@
+# PostgreSQL and Redis for local Kubernetes development only.
+#
+# On the node these run on the host, because a database in a pod on a single
+# node adds failure modes -- the pod, the PVC, the scheduler -- without adding
+# any of the benefits that make it worthwhile at scale.
+#
+# Locally the trade is reversed: self-contained and disposable matters more than
+# matching production exactly, and `kubectl delete namespace` should take
+# everything with it.
+#
+# PostgreSQL 14 to match the node. Compose uses 17.9, which is a real
+# inconsistency recorded in the local development guide; this file at least does
+# not add a third version.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: datastore
+spec:
+  replicas: 1
+  strategy:
+    # Recreate, not RollingUpdate. Two PostgreSQL pods cannot share one
+    # ReadWriteOnce volume, so a rolling update deadlocks: the new pod waits for
+    # a volume the old pod will not release until the new one is ready.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      securityContext:
+        # The namespace enforces pod-security `restricted`, so these are not
+        # optional. The official image runs as uid 999.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:14-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: POSTGRES_USER
+              value: novashop
+            - name: POSTGRES_PASSWORD
+              value: localdev
+            - name: POSTGRES_DB
+              value: novashop
+            - name: PGDATA
+              # A subdirectory, not the mount point. initdb refuses to run in a
+              # directory containing lost+found, which some volume types create.
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [sh, -c, "pg_isready -U novashop -d novashop"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: datastore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:8-alpine
+          # No persistence. The cart is the only thing here worth keeping, and
+          # losing it locally costs nothing. On the node Redis has an append-only
+          # file precisely because the cart is not derived from anything.
+          args: [redis-server, --save, "", --appendonly, "no"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
