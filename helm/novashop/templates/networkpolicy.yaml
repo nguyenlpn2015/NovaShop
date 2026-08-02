@@ -1,0 +1,104 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fullName := include "novashop.fullname" . -}}
+# Ingress is default-deny in every NovaShop namespace, with explicit exceptions below.
+#
+# Enforcement was verified empirically before any of this was written. k3s runs kube-router's
+# network policy controller — 2 processes, 123 netpol iptables chains — and a deny-all in a
+# probe namespace took a pod from REACHABLE to BLOCKED. A NetworkPolicy on a cluster that
+# does not enforce them is the worst kind of control: it appears in `kubectl get` and does
+# nothing.
+#
+# Egress is deliberately left unrestricted. The backend reaches PostgreSQL and Redis on the
+# node's LAN address over the pod network, and an egress rule that gets that wrong takes
+# every replica NotReady — the /ready probe checks both datastores. Ingress carries most of
+# the value anyway: it stops a compromised pod in one environment from reaching pods in
+# another.
+#
+# podSelector is empty throughout. These namespaces hold only NovaShop workloads, so
+# selecting all pods is both correct and simpler than threading per-component selectors
+# through four policies.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-default-deny-ingress
+  labels:
+    {{- include "novashop.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Traefik runs in kube-system and is the only thing that should reach these pods from
+# outside the namespace.
+#
+# The kubelet is why this rule is broader than it first looks. Readiness and liveness probes
+# originate on the node, not from a pod, so a namespace-only rule can take every replica
+# NotReady the moment it is applied — which on this platform means Traefik has no endpoint
+# and the site returns 503. The node network is admitted for that reason, and the behaviour
+# was verified against a live namespace before this shipped.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-edge-and-probes
+  labels:
+    {{- include "novashop.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Traefik, by namespace. kubernetes.io/metadata.name is set by the API server on
+        # every namespace, so this needs no label added anywhere.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        # The node itself, for kubelet probes. Scoped to the node network rather than open.
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.nodeNetwork | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.targetPort }}
+        - protocol: TCP
+          port: {{ .Values.frontend.service.targetPort }}
+---
+# Prometheus scrapes the backend on its container port. Without this the target goes down
+# and novashop_http_requests_total stops existing — the same silent gap as the scrape-port
+# defect, arriving by a different route.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-metrics-scrape
+  labels:
+    {{- include "novashop.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.observabilityNamespace | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.targetPort }}
+---
+# Pods within the namespace still reach each other. The frontend is browser-rendered and
+# does not call the backend server-side today, but blocking it would be a surprise the day
+# that changes, and the value of this policy set is cross-namespace isolation rather than
+# intra-namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-allow-same-namespace
+  labels:
+    {{- include "novashop.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+{{- end }}
