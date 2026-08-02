@@ -166,7 +166,7 @@ layers. Alerts route nowhere.
 
 **If they ask for shorter (30 seconds):**
 
-> A single-node k3s platform with GitOps delivery, 93 pre-merge guardrails each negative-tested,
+> A single-node k3s platform with GitOps delivery, 94 pre-merge guardrails each negative-tested,
 > and full observability with runbook-backed alerting. The interesting part is the engineering
 > log — sixteen defects where the code read correctly and was wrong, including a recovery script
 > that could not run and had passed every review. The audit is self-scored and the front page

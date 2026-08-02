@@ -96,6 +96,6 @@ interviewer handed the weakness up front spends the time on the engineering.
 
 - Do not call recovery *tested*. It is documented and partially exercised.
 - Do not call this production. It serves real traffic on one node with no HA.
-- Do not present the 93 pre-merge checks as a quality guarantee. They catch specific defects
+- Do not present the 94 pre-merge checks as a quality guarantee. They catch specific defects
   that actually occurred; [ADR 001](../adr/001-platform-guardrails.md) says exactly that.
 - Do not describe the application as the work. It is deliberately small.

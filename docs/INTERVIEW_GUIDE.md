@@ -83,7 +83,7 @@ That check found Traefik being scraped twice.
 Nine backend test functions, zero frontend tests, no coverage measurement. It is the weakest
 dimension and [AUDIT.md](AUDIT.md) scores Reliability **3/5** for it.
 
-The distinction I would draw: *configuration* reliability is strong — 93 automated checks,
+The distinction I would draw: *configuration* reliability is strong — 94 automated checks,
 each negative-tested to prove it fails when it should. *Application* test coverage is thin,
 and the application is deliberately trivial. If the interview is about platform engineering,
 the first number is the relevant one. If it is about application delivery, the second is a

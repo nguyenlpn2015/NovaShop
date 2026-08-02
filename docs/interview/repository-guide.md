@@ -16,7 +16,7 @@ platform around it is the subject.
 `novashop.smartdev.vn`, `staging.`, and `dev.`.
 
 **Measured at v1.0.0:** 12/12 Argo CD Applications Synced and Healthy, 31/31 Prometheus
-targets up, 14 alert rules with 14 runbooks, 93 automated pre-merge checks, and 117
+targets up, 14 alert rules with 14 runbooks, 94 automated pre-merge checks, and 117
 documents with 0 broken links. (The document count grows; the release figure is 117.)
 
 ---

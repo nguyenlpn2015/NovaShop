@@ -10,7 +10,8 @@ A production-style platform engineering project: GitOps delivery, guardrails tha
 unsafe releases, observability with runbook-backed alerting, Infrastructure as Code, and
 disaster recovery — running on a single Ubuntu node.
 
-The application is deliberately small. **The platform around it is the subject.**
+The storefront is real -- a catalogue, a cart in Redis, orders written inside a
+transaction. It is deliberately modest, because **the platform around it is the subject.**
 
 **v1.0.0** · Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
 [staging](https://staging.novashop.smartdev.vn) ·
@@ -27,9 +28,10 @@ Measured on the running platform, not aspirational.
 | | |
 |---|---|
 | Argo CD Applications | **12 / 12** Synced and Healthy |
+| Storefront pages | **9**, on three published environments |
 | Prometheus scrape targets | **31 / 31** up |
 | Alert rules, each with a runbook | **14**, all verified to resolve to a real file |
-| Automated pre-merge checks | **93** across three gates |
+| Automated pre-merge checks | **94** across three gates (39 · 30 · 25) |
 | Architecture Decision Records | **15**, each with rejected alternatives |
 | Architecture views | **13**, all Mermaid, all diffable |
 | Terraform layers | **7**, `fmt` clean, all validate |
@@ -166,7 +168,8 @@ Saying no is part of the design. Each has a recorded reason.
 [docs/AUDIT.md](docs/AUDIT.md) scores seven dimensions with the commands to falsify each.
 The weakest are stated plainly:
 
-- **Reliability 3/5** — 9 backend tests, **0 frontend tests**, no coverage measurement
+- **Reliability 3/5** — 52 backend and 17 frontend tests, no coverage measurement, and no
+  load testing. The frontend gap the audit named is closed; the measurement gap is not
 - **Production Readiness 2/5** — one node, no HA, alerts route nowhere
 - **Recovery is documented, not demonstrated.** Every component is tested — preconditions
   pass, a database restore round-trips 137 rows with an identical checksum, a deleted Service

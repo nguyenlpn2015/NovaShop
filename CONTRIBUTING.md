@@ -21,7 +21,7 @@ are here:
 | | |
 | --- | --- |
 | A document that is wrong | The highest-value report this project takes — see the [documentation template](https://github.com/nguyenlpn2015/NovaShop/issues/new?template=documentation.yml) |
-| Frontend tests | There are **none**. This is the largest single gap, and it is stated in [AUDIT.md](docs/AUDIT.md) |
+| Test coverage measurement | There is none, for either side. 52 backend and 17 frontend tests run, and nobody knows what they miss — [AUDIT.md](docs/AUDIT.md) |
 | An Academy module | Fifteen of nineteen are specified but unwritten — [`docs/academy/`](docs/academy/) has the template and the files each teaches from |
 | A gate that catches a real defect | Not a hypothetical one. [ADR 001](adr/001-platform-guardrails.md) explains the distinction |
 | A reproduction of something that fails silently | Anything that renders, validates, deploys, and does nothing |

@@ -44,7 +44,7 @@ turns: the scrape annotation that named a Service port, the `stage.labels` that 
 journal streams with no `unit` label, the `initChownData` that needed root. A future reader
 does not have to rediscover them.
 
-**Validation is scripted, not described.** Three gates, 93 checks total (38 + 30 + 25), all
+**Validation is scripted, not described.** Three gates, 94 checks total (39 + 30 + 25), all
 runnable locally without a cluster. Version constants live in the gate, so a chart upgrade
 that forgets to bump them fails visibly.
 
@@ -83,7 +83,7 @@ This is the honest low point among the engineering dimensions, and the gap is sp
 
 ### Evidence for
 
-**Configuration reliability is genuinely strong.** 93 automated checks. The observability gate
+**Configuration reliability is genuinely strong.** 94 automated checks. The observability gate
 in particular defends against the failure mode that ordinary validation misses: a scrape job
 whose relabel rules match nothing renders, validates, and deploys correctly and collects
 nothing. It asserts required jobs by name, asserts Traefik's discovery role, runs
@@ -329,7 +329,7 @@ for a *platform* portfolio, and it should be stated up front rather than discove
 - Fourteen runbooks, each written for someone reading it at an inconvenient hour, and each
   verified by CI to exist.
 - Five operational guides plus task references.
-- 93 automated checks anyone can run locally.
+- 94 automated checks anyone can run locally.
 - Both repositories protected by rulesets as code.
 
 ### Evidence against
@@ -370,7 +370,7 @@ re-stated below against what is now on `main`.
 | Dimension | Was | Now | Change |
 |---|---|---|---|
 | Maintainability | 4 | **4** | README and stubs fixed; the layered `docs/` pairs remain |
-| Reliability | 3 | **3** | Backup and restore now validated; still 0 frontend tests, no coverage |
+| Reliability | 3 | **3** | Backup and restore validated. 52 backend and 17 frontend tests -- the gap this row named is closed. Held at 3: there is still no coverage measurement and no load testing |
 | Security | 4 | **4** | Network policy added; egress and two namespaces still open |
 | Platform Readiness | 4 | **4** | — |
 | Production Readiness | 2 | **2** | One node, no alert routing, recovery unexercised |
@@ -435,7 +435,7 @@ bash scripts/validate-observability.sh      --gitops-dir ../NovaShop-GitOps  # 2
 ```sh
 cd backend && pytest --collect-only -q | tail -1     # the test count, unflattered
 grep -c 'def test_' backend/tests/*.py
-ls frontend/**/*.test.* 2>/dev/null || echo "no frontend tests — as stated"
+ls frontend/src/**/*.test.* 2>/dev/null | wc -l   # 3 files, 17 tests
 ```
 
 Every score above is falsifiable from the repository. If one of them is generous, the commands
