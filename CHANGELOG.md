@@ -8,6 +8,73 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-02
+
+First release. A single-node platform engineering portfolio: GitOps delivery,
+pre-merge guardrails, observability with runbook-backed alerting, Infrastructure
+as Code, and documented recovery.
+
+### Platform, as released
+
+- 12 Argo CD Applications, Synced and Healthy
+- 31 Prometheus scrape targets, all up
+- 14 alert rules, each linked to a runbook CI proves exists
+- 93 automated pre-merge checks across three gates
+- 15 Architecture Decision Records, 13 architecture views, 117 documents
+- 7 Terraform layers, non-cloud, `fmt` clean and all validating
+- Three environments behind Traefik with Let's Encrypt certificates and HSTS
+
+### Added in this release
+
+- Datastore backup, verification, and restore. The `novashop` database previously
+  had no backup of any kind, while two documents claimed otherwise.
+- An off-node copy of the material that cannot be regenerated — 21 KB, against
+  27 MB on-node and 550 MB of volumes.
+- Default-deny ingress in the application namespaces, trialled on a live namespace
+  with a no-policy control group before being committed.
+- Terraform GitOps handover layer, completing seven layers, with ADR 014.
+- A Terraform audit with a maturity score and the commands to reproduce it.
+- `tflint` in CI, which found twelve unused declarations invisible to `fmt` and
+  `validate`.
+- An ACME contact address, so Let's Encrypt expiry warnings reach a monitored
+  mailbox.
+- An interview guide and an engineering log recording sixteen defects, how each
+  was found, and what changed.
+
+### Fixed
+
+- `recover.sh` could not run. It matched `^DATABASE_URL=` while the platform
+  environment file declares `export DATABASE_URL=`, so recovery aborted at its
+  first precondition on a healthy platform. The same mismatch had already been
+  fixed in another script; it survived here because this one had never been run.
+- Argo CD sync status compares a server-side apply dry-run against the live
+  object, not the rendered manifest. Comparing the wrong pair produced two
+  consecutive wrong fixes, both reverted.
+- Backup scripts: `postgres` could not read a dump written into a 0700 root-owned
+  directory; `su` inherited an inaccessible working directory; `IFS` was
+  newline-and-tab while the manifest is space-separated.
+- Documentation claiming the SQLite datastore and runtime environment were backed
+  up, and five documents naming the wrong Ubuntu release.
+
+### Known limitations
+
+Stated here rather than in a footnote, because they bound what this release
+claims.
+
+- **Full recovery has never been exercised on a replacement node.** Components are
+  tested individually; the sequence is not. RTO is an estimate of 30-45 minutes and
+  should be treated as unknown.
+- **Alerts route nowhere.** They evaluate and are queryable; nothing pages anyone.
+- **No frontend tests**, 9 backend test functions, no coverage measurement.
+- **Five of seven Terraform layers manage nothing.** The interface is designed and
+  validated; the resources are not written.
+- **Single node.** No high availability, no rescheduling, SQLite datastore.
+- **No off-node backup automation**, no scheduled backup, no point-in-time recovery.
+- **Distributed tracing instrumented but not deployed** — see ADR 011.
+
+Production Readiness is scored 2/5 in `docs/AUDIT.md` for these reasons. The
+remaining work is listed there as v1.1.
+
 ### Added
 
 - Repository governance policies and community health documentation.

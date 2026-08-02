@@ -6,9 +6,10 @@ disaster recovery — running on a single Ubuntu node.
 
 The application is deliberately small. **The platform around it is the subject.**
 
-Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
+**v1.0.0** · Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
 [staging](https://staging.novashop.smartdev.vn) ·
-[dev](https://dev.novashop.smartdev.vn)
+[dev](https://dev.novashop.smartdev.vn) ·
+[CHANGELOG](CHANGELOG.md)
 
 ## Current state
 
@@ -113,7 +114,10 @@ The weakest are stated plainly:
 
 - **Reliability 3/5** — 9 backend tests, **0 frontend tests**, no coverage measurement
 - **Production Readiness 2/5** — one node, no HA, alerts route nowhere
-- **Recovery** — the full sequence has never been exercised on a replacement node
+- **Recovery is documented, not demonstrated.** Every component is tested — preconditions
+  pass, a database restore round-trips 137 rows with an identical checksum, a deleted Service
+  is reconciled in 5 seconds — but the full sequence has never run on a replacement node.
+  **RTO is an estimate of 30–45 minutes and should be treated as unknown.**
 
 A platform whose own audit is flattering is not an audit.
 

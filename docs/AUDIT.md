@@ -19,7 +19,9 @@ SRE function". Nothing here is scored 5, and the reasons are stated.
 | Platform Readiness | **4** / 5 | GitOps, guardrails, phased TLS, and rehearsed recovery all real and verified |
 | Production Readiness | **2** / 5 | One node, no HA, no alert routing, 7-day retention. Honest about all of it. |
 | Interview Readiness | **5** / 5 | Every non-obvious decision has a recorded reason and a failure that motivated it |
-| Portfolio Quality | **4** / 5 | Documentation and diagrams are strong; the application itself is trivial by design |
+| Portfolio Quality | **5** / 5 | Engineering log, interview guide, and a README a reviewer can finish |
+
+**Overall 3.9 / 5 after the v1.0 rescore below.**
 
 **Weighted view for the stated purpose** (a Senior DevOps portfolio): the dimensions that
 matter most are Platform Readiness, Interview Readiness, and Maintainability, and those are
@@ -346,50 +348,81 @@ resolve or close the Dependabot majors with a note.
 
 ---
 
-## Roadmap to v1.0
+## v1.0.0 — what shipped
 
-Ordered by value per unit of effort. Nothing here requires a new platform technology.
+Released 2026-08-02. The audit above was written before this release; the scores are
+re-stated below against what is now on `main`.
 
-### v0.9 — Close what is already open
+### Closed since the audit
 
-| # | Item | Why it is first |
-|---|---|---|
-| 1 | Configure alert routing to a real destination | Fourteen good alerts that page nobody are diagnostics, not alerting. The single largest gap between this and an operating platform. |
-| 3 | Rotate node credentials, enforce SSH keys | Known, documented, and the only genuinely open security item. |
-| 4 | Remove the duplicate `push` CI trigger | Halves CI cost and removes a real source of confusion. |
-| 5 | Remove the duplicate Traefik scrape | Requires overriding a chart default scrape job; combine with item 6. |
-| 6 | Land the k3s control-plane flags | Needs a restart, so combine with the next k3s upgrade rather than spending an outage. |
-| 7 | Resolve Dependabot #42 and #43 | Major bumps must move Dockerfile, workflow, `engines`, and types together. |
-
-### v0.95 — Close the reliability gap
-
-| # | Item | Target |
-|---|---|---|
-| 8 | Frontend test framework and first suite | Zero → a real suite. The most conspicuous gap in the repository. |
-| 9 | Backend integration test with service containers | Verify `/ready` against real PostgreSQL and Redis in CI |
-| 10 | Coverage measurement in CI, number published | Make the gap visible instead of implicit |
-| 11 | Complete the dashboard set | Match the stated scope, or restate the scope |
-
-### v1.0 — Consolidate and present
-
-| # | Item |
+| Item | Shipped in |
 |---|---|
-| 12 | Merge or rename the layered `docs/` pairs; move sprint artefacts to `docs/SPRINTS/`; retire "Deployment Target A/B" |
-| 13 | Fill or delete `PROJECT_GLOSSARY.md` and `LEARNING_LOG.md` |
-| 14 | Restructure `README.md` — short competence summary, links out |
-| 15 | Default-deny network policies for `observability` and `cert-manager` — the application namespaces are done |
-| 16 | Sign images with cosign; publish provenance |
-| 17 | Re-run this audit and publish the delta |
+| ACME contact address, so Let's Encrypt expiry warnings reach a monitored mailbox | #48 |
+| Terraform GitOps handover layer, ADR 014, Terraform audit, tflint in CI | #51 / #54 |
+| Datastore backup, verification, and restore — the `novashop` database had none | #52 |
+| `recover.sh` fixed; it could not run at all before | #52 |
+| Off-node backup copy — 21 KB, the part that cannot be regenerated | #52 |
+| Default-deny ingress in the application namespaces, trialled live with a control | #53 |
+| README restructured, 753 lines to 169; glossary and engineering log written | #55 |
 
-### Deliberately not in v1.0
+### Rescored
+
+| Dimension | Was | Now | Change |
+|---|---|---|---|
+| Maintainability | 4 | **4** | README and stubs fixed; the layered `docs/` pairs remain |
+| Reliability | 3 | **3** | Backup and restore now validated; still 0 frontend tests, no coverage |
+| Security | 4 | **4** | Network policy added; egress and two namespaces still open |
+| Platform Readiness | 4 | **4** | — |
+| Production Readiness | 2 | **2** | One node, no alert routing, recovery unexercised |
+| Interview Readiness | 5 | **5** | — |
+| Portfolio Quality | 4 | **5** | The engineering log and interview guide are what changed this |
+
+**Overall 3.9 / 5. Maturity level 3 — Defined.**
+
+### The condition v1.0 does not meet, stated plainly
+
+**Full recovery has never been exercised on a replacement node.** Every component has been
+tested individually — preconditions pass, database restore round-trips 137 rows with an
+identical content checksum, GitOps reconciliation recreates a deleted Service in 5 seconds —
+but the sequence has not been run end to end.
+
+This was a blocker in the earlier recommendation. It was consciously accepted for release
+because the project's purpose is demonstrating platform engineering, not operating a
+business service, and rehearsing on a second node requires hardware that does not exist here.
+
+The consequence is precise and should not be softened: **RTO is an estimate of 30–45 minutes
+and should be treated as unknown.** Recovery is a documented procedure, not a demonstrated
+capability. Anyone reading this repository as evidence of operational maturity should weigh
+that accordingly — and anyone reading it as evidence of engineering judgement should note
+that the defect which would have made recovery fail was found by running it, not reviewing
+it.
+
+## v1.1 — what remains
+
+Ordered by value. None requires a new platform technology.
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Exercise full recovery on a replacement node | The only thing that turns RTO into a measured number |
+| 2 | Alert routing to a real destination | Fourteen alerts that page nobody are diagnostics |
+| 3 | Scheduled backup plus a `BackupStale` alert | The off-node copy is manual and will go stale |
+| 4 | Frontend test framework and first suite | The most conspicuous gap in the repository |
+| 5 | Rotate node credentials, enforce SSH keys | The only open security item that is purely a decision |
+| 6 | Remove the duplicate `push` CI trigger and the duplicate Traefik scrape | Both known, both cheap |
+| 7 | Land the k3s control-plane metric flags | Combine with the next k3s upgrade |
+| 8 | Resources in the five inert Terraform layers | Interface is designed, validated, and empty |
+| 9 | Network policies for `observability` and `cert-manager`; egress restriction | Trial each the way the application namespaces were |
+| 10 | Sign images with cosign | Images are scanned, not signed |
+
+### Deliberately not planned
 
 | Not doing | Because |
 |---|---|
-| Deploy Tempo | Nothing worth tracing yet. [ADR 011](../adr/011-distributed-tracing.md) states what would change that. |
-| Second node / HA | A hardware decision. It would change the storage class choice and make PDBs meaningful, and it is the honest path from Production Readiness 2 to 4. |
-| Service mesh | Nothing in this platform exercises traffic management. |
-| External secret manager | [ADR 010](../adr/010-secret-management.md) — every option moves the bootstrap problem rather than removing it, on a single node with node-local storage. |
-| Gateway API | Four `Host` rules are satisfied by Ingress. Worth revisiting, not worth adding now. |
+| Deploy Tempo | Nothing worth tracing yet — [ADR 011](../adr/011-distributed-tracing.md) |
+| Second node / HA | Hardware, not engineering. The honest path from Production Readiness 2 to 4 |
+| Service mesh | Nothing here exercises traffic management |
+| External secret manager | Every option moves the bootstrap problem — [ADR 010](../adr/010-secret-management.md) |
+| Gateway API | Four `Host` rules are satisfied by Ingress |
 
 ## How to verify these claims
 
