@@ -50,6 +50,7 @@ source "${REPO_ROOT}/scripts/lib/edge-phase.sh"
 BACKUP_DIRECTORY=""
 ACCEPT_CERTIFICATE_REISSUE=false
 SKIP_VERIFY=false
+PRECONDITIONS_ONLY=false
 PRECONDITION_FAILURES=0
 
 log() {
@@ -88,6 +89,9 @@ Usage:
                                  request new certificates, consuming Let's
                                  Encrypt issuance quota.
   --skip-verify                  Skip the post-recovery verification run.
+  --preconditions-only           Check every precondition, report, and exit without
+                                 changing anything. Use this to inspect readiness on a
+                                 running platform.
 EOF
 }
 
@@ -314,6 +318,9 @@ main() {
       --skip-verify)
         SKIP_VERIFY=true
         ;;
+      --preconditions-only)
+        PRECONDITIONS_ONLY=true
+        ;;
       -h | --help)
         usage
         exit 0
@@ -338,6 +345,16 @@ main() {
   fi
 
   run_preconditions
+
+  # Inspecting readiness on a running platform must not be able to start a rebuild by
+  # accident. During the 2026-08-02 exercise recover.sh was invoked to observe its
+  # preconditions and ran on into rebuild_cluster; no harm followed because the install
+  # scripts are idempotent, but that was luck rather than design.
+  if [[ "${PRECONDITIONS_ONLY}" == "true" ]]; then
+    log 'Preconditions only; nothing was changed.'
+    return 0
+  fi
+
   load_platform_environment
   rebuild_cluster
   restore_certificate_material

@@ -41,6 +41,7 @@ Index in [operations/README.md](operations/README.md).
 | [Platform Upgrade](operations/platform-upgrade.md) | Moving k3s, Argo CD, or a chart |
 | [Backup and Restore](operations/backup-and-restore.md) | Protecting data, and proving the backup works |
 | [Disaster Recovery](recovery/disaster-recovery.md) | The node is gone |
+| [DR exercise, 2026-08-02](recovery/dr-exercise-2026-08-02.md) | What was and was not proven |
 
 ### Task reference
 
