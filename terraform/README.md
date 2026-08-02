@@ -43,13 +43,18 @@ Each layer is a separate root module with its own state. Numbered by dependency 
 | [`3-github`](layers/3-github/) | Two repositories, rulesets, Dependabot | `github` | 5 |
 | [`4-dns`](layers/4-dns/) | Cloudflare A records | `cloudflare` | 6 |
 | [`5-cluster`](layers/5-cluster/) | The one namespace Argo CD does not reconcile, a read-only role, and cluster prerequisites | `kubernetes` | 7 |
+| [`6-gitops`](layers/6-gitops/) | Argo CD install, the `novashop` AppProject, the root Application, repository registration | `kubernetes` | 8 |
 
 Layers are separate rather than workspaces because they differ in **lifecycle** and in
 **who can run them** — a DNS change and a node change have nothing in common except this
 repository. Workspaces share one backend configuration and encourage `count` by
 environment, which is not the axis this platform varies on.
 
-`5-cluster` is the one layer inside the cluster, and it **asserts far more than it owns** —
+`6-gitops` is the last layer Terraform runs. It creates the root Application and stops;
+everything downstream reconciles from Git. See
+[ADR 014](../adr/014-terraform-gitops-handover.md).
+
+`5-cluster` is a layer inside the cluster, and it **asserts far more than it owns** —
 two resources against eleven assertions. Checking what Argo CD actually reconciles, rather
 than assuming, found that five of six namespaces are reconciled and three of those carry no
 tracking annotation at all: `managedNamespaceMetadata` on the ApplicationSet reapplies their
