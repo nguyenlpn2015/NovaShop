@@ -42,6 +42,11 @@ RUN rm -rf \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# public/ is not part of the standalone output and has to be copied explicitly.
+# Omitting it was harmless while the directory was empty, and became the reason
+# every product image 404ed the moment there were any.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
 USER nextjs
 EXPOSE 3000
 

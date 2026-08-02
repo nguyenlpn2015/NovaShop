@@ -193,7 +193,12 @@ async def _seed_products(session, categories, rng) -> list[Product]:  # noqa: AN
                     "Built for everyday use, and photographed honestly."
                 ),
                 price_cents=rng.randrange(15, 320) * 1000,
-                image_path=f"/products/{slug}-{index % 8:02d}.webp",
+                # Under /img/, not /products/. The product detail route is
+                # /products/[slug], and a request for /products/apparel-00.webp
+                # matched it as a slug -- every image returned the rendered HTML
+                # of a not-found page instead of an image, so every card showed
+                # only its gradient fallback and nothing reported an error.
+                image_path=f"/img/products/{slug}-{index % 8:02d}.webp",
                 is_featured=1 if index < 1 else 0,
                 created_at=datetime.now(UTC) - timedelta(days=rng.randrange(0, 240)),
             )
