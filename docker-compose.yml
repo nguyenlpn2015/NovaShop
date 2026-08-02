@@ -7,7 +7,13 @@ services:
     build:
       context: ./frontend
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # Server-side only. The browser never learns a backend address: every
+      # page fetches during server rendering, and the one client-side call goes
+      # through a same-origin route handler. See src/lib/api.ts for why
+      # NEXT_PUBLIC_API_URL could never have worked.
+      BACKEND_URL: http://backend:8000
+      APP_ENVIRONMENT: local
+      BUILD_SHA: ${BUILD_SHA:-development}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:

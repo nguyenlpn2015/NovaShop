@@ -11,4 +11,20 @@ data:
   APP_NAME: {{ .Values.config.appName | quote }}
   APP_VERSION: {{ .Values.config.appVersion | quote }}
   ENVIRONMENT: {{ .Values.config.environment | quote }}
-  NEXT_PUBLIC_API_URL: {{ .Values.config.nextPublicApiUrl | quote }}
+
+  # Read by the frontend on the server, at request time. Deliberately not
+  # NEXT_PUBLIC_*: Next.js inlines those into the client bundle at BUILD time,
+  # and no build argument was ever supplied -- so NEXT_PUBLIC_API_URL was
+  # undefined in browser code and this ConfigMap entry changed nothing. It went
+  # unnoticed only because the frontend made no API calls.
+  #
+  # Building one image per environment would have fixed the symptom and broken
+  # the property this platform is built on: one artefact, pinned by SHA,
+  # promoted through three environments. Instead the browser never learns a
+  # backend address at all.
+  BACKEND_URL: {{ .Values.config.backendUrl | quote }}
+
+  # Shown in the footer. It is the only way to watch a rolling update happen
+  # from outside the cluster.
+  APP_ENVIRONMENT: {{ .Values.config.environment | quote }}
+  BUILD_SHA: {{ .Values.backend.image.tag | quote }}

@@ -1,6 +1,5 @@
 config:
   environment: production
-  nextPublicApiUrl: https://api.novashop.example.com
 
 backend:
   replicaCount: 3

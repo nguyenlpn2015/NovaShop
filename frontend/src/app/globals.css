@@ -1,19 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Colour is defined once, here, as channel triplets so Tailwind's
+ * <alpha-value> syntax works. Every component names a role -- surface, content,
+ * accent -- and never a hue, so the whole palette can be changed in this file
+ * without touching a component.
+ */
 :root {
-  color-scheme: light dark;
-  font-family: Arial, Helvetica, sans-serif;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 245 246 248;
+  --content: 17 24 39;
+  --content-muted: 75 85 99;
+  --content-faint: 156 163 175;
+  --accent: 29 78 216;
+  --accent-hover: 30 64 175;
+  --accent-contrast: 255 255 255;
+  --edge: 226 232 240;
+  --positive: 21 128 61;
+  --caution: 180 83 9;
 }
 
-* {
-  box-sizing: border-box;
+.dark {
+  --surface: 15 18 24;
+  --surface-raised: 22 26 34;
+  --surface-sunken: 11 13 18;
+  --content: 237 240 245;
+  --content-muted: 156 163 175;
+  --content-faint: 107 114 128;
+  --accent: 96 165 250;
+  --accent-hover: 147 197 253;
+  --accent-contrast: 9 12 17;
+  --edge: 39 45 56;
+  --positive: 74 222 128;
+  --caution: 251 191 36;
 }
 
-body {
-  margin: 0;
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-surface text-content antialiased;
+  }
+
+  /* Visible focus, always. Removing the outline without replacing it makes the
+     site unusable by keyboard, and it is the most common accessibility
+     regression introduced by a design pass. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-surface;
+  }
+
+  /* Honour the operating system's reduced-motion preference rather than
+     assuming everyone enjoys the animations. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
-main {
-  display: grid;
-  min-height: 100vh;
-  place-content: center;
-  text-align: center;
+@layer components {
+  .card {
+    @apply rounded-card border border-edge bg-surface-raised;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-sunken;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: "";
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--content) / 0.06),
+      transparent
+    );
+  }
 }
