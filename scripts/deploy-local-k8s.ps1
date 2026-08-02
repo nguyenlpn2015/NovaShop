@@ -249,9 +249,10 @@ Write-Host '  Port-forward (works regardless of ingress):' -ForegroundColor Whit
 Write-Host "    kubectl port-forward -n $Namespace svc/novashop-frontend 3000:80"
 Write-Host '    then open http://localhost:3000'
 Write-Host ''
-Write-Host '  Through Traefik, once the hosts entries exist:' -ForegroundColor White
-Write-Host '    http://novashop.local            (add with: .\scripts\configure-local-hosts.ps1, as Administrator)'
-Write-Host '    http://api.novashop.local/docs'
+Write-Host '  Through Traefik. No hosts file, no administrator -- *.localhost' -ForegroundColor White
+Write-Host '  resolves to 127.0.0.1 on its own:' -ForegroundColor White
+Write-Host '    http://novashop.localhost'
+Write-Host '    http://api.novashop.localhost/docs'
 Write-Host ''
 Write-Host '  Remove everything:' -ForegroundColor White
 Write-Host "    .\scripts\deploy-local-k8s.ps1 -Uninstall"
