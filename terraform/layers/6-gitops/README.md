@@ -156,5 +156,7 @@ exhaust the budget and leave the platform unable to obtain a certificate for day
 terraform output -json verification_commands | jq -r '.[]'
 ```
 
-Renders the four commands that prove the handover is intact, so `verify.sh` asserts them
-rather than a person remembering to look.
+Renders the four commands that prove the handover is intact.
+
+`verify.sh` is the intended consumer and does not read them yet — wiring it up is on the
+Terraform audit's recommendation list. Until then these are run by hand.

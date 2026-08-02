@@ -1,6 +1,10 @@
 # Outputs for the cluster layer.
 #
-# These exist to be asserted against by scripts/linux/verify.sh, not read by a person. No
+# These exist to be asserted against rather than read by a person.
+#
+# Nothing consumes them yet. scripts/linux/verify.sh is the intended consumer and does not
+# read them today, so treat these as an interface waiting for a caller, not as wiring that
+# already exists. No
 # output exposes a secret value, and none can: this layer never reads a Secret.
 
 output "cluster_prerequisites" {

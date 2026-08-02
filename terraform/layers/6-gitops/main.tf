@@ -47,8 +47,12 @@ resource "terraform_data" "argocd_install" {
   provisioner "remote-exec" {
     inline = [
       "set -Eeuo pipefail",
-      "cd ${var.repository_root}",
-      "sudo -E env ARGOCD_VERSION=${var.argocd_version} ARGOCD_NAMESPACE=${var.argocd_namespace} WAIT_TIMEOUT=${var.wait_timeout} bash scripts/linux/install-argocd.sh",
+      # Quoted. These are operator-supplied values interpolated into a shell running as
+      # root on the node; an unquoted path containing a space or a semicolon is a command
+      # injection, and the fact that the operator supplies it is not a reason to leave it
+      # unquoted.
+      "cd '${var.repository_root}'",
+      "sudo -E env ARGOCD_VERSION='${var.argocd_version}' ARGOCD_NAMESPACE='${var.argocd_namespace}' WAIT_TIMEOUT='${var.wait_timeout}' bash scripts/linux/install-argocd.sh",
     ]
   }
 }
@@ -81,8 +85,8 @@ resource "terraform_data" "gitops_handover" {
   provisioner "remote-exec" {
     inline = [
       "set -Eeuo pipefail",
-      "cd ${var.repository_root}",
-      "sudo -E env ARGOCD_APPLICATION_MANIFEST=${var.repository_root}/${var.root_application_manifest} ARGOCD_NAMESPACE=${var.argocd_namespace} bash scripts/bootstrap.sh",
+      "cd '${var.repository_root}'",
+      "sudo -E env ARGOCD_APPLICATION_MANIFEST='${var.repository_root}/${var.root_application_manifest}' ARGOCD_NAMESPACE='${var.argocd_namespace}' bash scripts/bootstrap.sh",
     ]
   }
 }

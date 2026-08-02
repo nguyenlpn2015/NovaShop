@@ -58,7 +58,7 @@ output "argocd_owns_after_handover" {
 }
 
 output "verification_commands" {
-  description = "Commands that prove the handover is intact, for scripts/linux/verify.sh."
+  description = "Commands that prove the handover is intact. Intended for scripts/linux/verify.sh, which does not consume them yet."
   value = {
     root_application = "kubectl -n ${var.argocd_namespace} get application ${var.root_application_name} -o jsonpath='{.status.sync.status}/{.status.health.status}'"
     all_applications = "kubectl -n ${var.argocd_namespace} get applications --no-headers | awk '$2!=\"Synced\" || $3!=\"Healthy\"'"

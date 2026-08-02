@@ -5,7 +5,12 @@ minimal manual work. It does **not** provision cloud resources — there is no A
 or GCP account. It manages the platform that exists: a GitHub organisation, a DNS zone, an
 Ubuntu node, and the datastores on it.
 
-Decision and rationale: [ADR 012](../adr/012-terraform-scope.md).
+Decision and rationale: [ADR 012](../adr/012-terraform-scope.md),
+[ADR 013](../adr/013-terraform-kubernetes-boundary.md),
+[ADR 014](../adr/014-terraform-gitops-handover.md).
+
+Review, findings, and maturity score: [Terraform audit](../docs/TERRAFORM_AUDIT.md).
+Architecture view: [Terraform Flow](../docs/architecture/terraform-flow.md).
 
 > **Phase 1 status.** This directory currently contains **foundation only** — providers,
 > version pins, backend abstraction, variables, locals, outputs, and validation. **No
