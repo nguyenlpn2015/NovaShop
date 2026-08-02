@@ -35,20 +35,44 @@ are backed up with no change to the script. Verify that after the first backup:
 grep '^databases=' /path/to/backup/manifest.txt
 ```
 
-## 2. Read-only grants for the metrics exporter
+## 2. Grants
 
-The exporter role must see the new databases. Note the `REVOKE` — on PostgreSQL 14,
-`CREATE` on `public` is granted to `PUBLIC`, so `pg_monitor` alone does not make a role
-read-only. PostgreSQL 15 removed that default.
+The exporter must be able to read the new databases and must not be able to write to them.
+The application must be able to create tables, because Alembic runs as it.
+
+**Both statements are required, and the order matters.** On PostgreSQL 14, `CREATE` on schema
+`public` is granted to `PUBLIC`, so `pg_monitor` alone does not make the exporter read-only.
+PostgreSQL 15 removed that default.
 
 ```sh
 for env in development staging production; do
-  sudo -u postgres psql -d "novashop_${env}" -c \
-    'GRANT CONNECT ON DATABASE novashop_'"${env}"' TO novashop_exporter;'
-  sudo -u postgres psql -d "novashop_${env}" -c \
-    'REVOKE CREATE ON SCHEMA public FROM PUBLIC;'
+  sudo -u postgres psql -q -d "novashop_${env}" \
+    -c "GRANT CONNECT ON DATABASE novashop_${env} TO novashop_exporter;" \
+    -c 'REVOKE CREATE ON SCHEMA public FROM PUBLIC;' \
+    -c 'GRANT USAGE, CREATE ON SCHEMA public TO novashop;'
 done
 ```
+
+> **The `GRANT` on the last line is not optional, and omitting it is not a subtle failure.**
+> An earlier version of this document had only the `REVOKE`. `PUBLIC` includes every role, so
+> revoking `CREATE` from it also removed it from `novashop` — the role Alembic connects as.
+> The migration Job then failed with `permission denied for schema public` while trying to
+> create `alembic_version`, and because a failed PreSync hook is retried rather than fatal on
+> the first attempt, the Application still reported **Synced and Healthy** with an empty
+> database behind it.
+>
+> Revoking a privilege from `PUBLIC` revokes it from everyone. Grant it back to the one role
+> that needs it, by name.
+
+Verify both halves:
+
+```sh
+sudo -u postgres psql -d novashop_development -tAc \
+  "SELECT 'app='   || has_schema_privilege('novashop','public','CREATE')
+       || ' exporter=' || has_schema_privilege('novashop_exporter','public','CREATE')"
+```
+
+Expect `app=true exporter=false`.
 
 ## 3. One Redis index per environment
 

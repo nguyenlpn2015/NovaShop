@@ -67,6 +67,37 @@ BUILD_INFO = Gauge(
     registry=REGISTRY,
 )
 
+# Cache effectiveness, by operation and outcome.
+#
+# `operation` is a name this code chooses -- never a cache key. Keys contain
+# identifiers, and a label built from an identifier is unbounded: the same
+# cardinality trap that route templates exist to avoid, arriving through a
+# different door.
+#
+# `result` covers hit, miss, error, corrupt and unavailable rather than just the
+# first two, because a cache that is failing and a cache that is missing look
+# identical in a hit ratio computed from two counters.
+CACHE_OPERATIONS = Counter(
+    "novashop_cache_operations_total",
+    "Cache reads and writes, by logical operation and outcome.",
+    labelnames=("operation", "result"),
+    registry=REGISTRY,
+)
+
+# Database timing, by a query name this code chooses.
+#
+# Not by SQL text: statements contain literals, and the label would be unbounded.
+# Buckets run finer than the HTTP histogram because an indexed lookup answering
+# in 40ms and one answering in 4ms are different situations, and the HTTP
+# buckets cannot tell them apart.
+DB_QUERY_DURATION = Histogram(
+    "novashop_db_query_duration_seconds",
+    "Database query duration in seconds, by named query.",
+    labelnames=("query",),
+    buckets=(0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+    registry=REGISTRY,
+)
+
 
 def route_template(request: Request) -> str:
     """Return the matched route template, or a single bucket when none matched.
