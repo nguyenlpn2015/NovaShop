@@ -1,0 +1,36 @@
+# Layer 5 — cluster.
+#
+# Unlike other layers, plan needs a reachable cluster: this layer reads live state to assert
+# prerequisites. It never reads a Secret.
+
+# On the node this is /etc/rancher/k3s/k3s.yaml, mode 0600, cluster-admin.
+kubeconfig_path    = "/etc/rancher/k3s/k3s.yaml"
+kubeconfig_context = ""
+
+storage_class_name       = "local-path"
+expected_node_count      = 1
+minimum_kubernetes_minor = 30
+
+# The only namespace Argo CD does not reconcile. Labels must match the cluster exactly or the
+# import produces a non-empty plan; managed-by is kubectl because the bootstrap script
+# created this before Argo CD existed.
+argocd_namespace = "argocd"
+argocd_namespace_labels = {
+  "app.kubernetes.io/managed-by" = "kubectl"
+  "app.kubernetes.io/name"       = "argocd"
+  "app.kubernetes.io/part-of"    = "novashop-platform"
+}
+
+# A read-only role for verification and incident triage, so diagnosis does not require the
+# cluster-admin kubeconfig. Excludes secrets on purpose.
+manage_read_only_role = true
+read_only_role_name   = "novashop-platform-viewer"
+
+# Empty by default. A binding to a subject nobody uses grants nothing and hides that fact.
+read_only_subjects = []
+# read_only_subjects = [
+#   { kind = "ServiceAccount", name = "platform-verifier", namespace = "argocd" },
+# ]
+
+# The tracked-namespace and required-secret contracts have defaults in variables.tf that
+# match this platform. Override only if the platform changes shape.
