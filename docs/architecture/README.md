@@ -1,6 +1,6 @@
 # Architecture
 
-Twelve views of the same platform. Each one answers a question that the others
+Thirteen views of the same platform. Each one answers a question that the others
 cannot, and each diagram is accompanied by the reasoning behind the parts of it
 that are not obvious.
 
@@ -22,6 +22,7 @@ If you are new to the repository, read them in this order. Each builds on the la
 | 10 | [Networking](networking.md) | How does a packet reach a pod? |
 | 11 | [DNS](dns.md) | How does a name become that packet's destination? |
 | 12 | [TLS Flow](tls-flow.md) | How does a certificate come to exist, and stay valid? |
+| 13 | [Terraform Flow](terraform-flow.md) | What is codified outside the cluster, and where does Terraform stop? |
 
 ## Conventions
 
