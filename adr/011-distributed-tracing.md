@@ -108,6 +108,34 @@ Any one of these makes tracing worth deploying:
 
 Until one of those is true, deploying Tempo adds a component and no information.
 
+## Two of those conditions are now true — 2026-08-02
+
+The storefront changed the facts this decision rested on, and saying so is more
+useful than quietly leaving the original reasoning in place.
+
+**Condition 1 is met.** `GET /cart/{cart_id}` reads the cart from Redis and then prices every
+line from PostgreSQL in one request. Checkout does more: it reads Redis, opens a transaction,
+takes row locks with `FOR UPDATE`, writes an order and its lines, decrements stock, commits,
+and then invalidates specific cache keys. That is exactly the shape a trace explains better
+than a metric.
+
+**Condition 2 is met.** Every page renders on the server and fetches the backend over the
+cluster network, so a page view is genuinely a two-service call.
+
+**The decision does not change, but its reason does.** The original argument was that there
+was nothing worth tracing. That argument is now false, and continuing to make it would be
+dishonest. The argument today is narrower:
+
+- The node runs at roughly 150% committed memory limits. Tempo, its ingester and its storage
+  are not free, and the first thing to suffer would be the observability already in place.
+- `novashop_db_query_duration_seconds` labels every query by a name this code chooses, so the
+  slow-query question — the one a trace is usually reached for first — is already answerable.
+- Request IDs already correlate a log line to a request across both services.
+
+So: **deferred on capacity, not dismissed on value.** The instrumentation stays in the image
+and stays disabled; enabling it is one environment variable once a collector exists. When the
+platform gains a second node, this ADR should be superseded rather than amended again.
+
 ## Validation
 
 ```sh
