@@ -210,6 +210,29 @@ jobs:
       # Every layer is validated independently because each is a root module with
       # its own provider requirements. Iterating means a new layer is covered the
       # moment its directory exists, without editing this workflow.
+      # tflint catches what fmt and validate cannot: declarations nothing uses. It found
+      # twelve on its first run, every one invisible to this pipeline until now.
+      #
+      # It fails on errors and reports warnings without blocking, and that is a compromise
+      # rather than a preference. All twelve current warnings are variables and locals
+      # belonging to layers whose resources have not landed yet — real interface, not dead
+      # code. Failing on them would mean deleting an interface that is about to be used, or
+      # exempting the rule permanently.
+      #
+      # The cost is real: a warning nobody has to act on is a warning that gets ignored. The
+      # count is tracked in docs/TERRAFORM_AUDIT.md with a target of zero, and the fix is to
+      # land the resources, not to relax the rule. When the count reaches zero this should
+      # become --minimum-failure-severity=warning.
+      - name: Set up tflint
+        uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+        with:
+          tflint_version: v0.55.0
+
+      - name: Lint every layer
+        run: |
+          set -Eeuo pipefail
+          tflint --recursive --format compact             --config "$(pwd)/.tflint.hcl"             --minimum-failure-severity=error
+
       - name: Validate every layer
         run: |
           set -Eeuo pipefail
