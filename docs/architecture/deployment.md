@@ -15,7 +15,7 @@ flowchart TB
         FGW["<b>FortiGate</b><br/><i>edge firewall</i><br/>DNAT 80/443 → 10.10.1.45"]
 
         subgraph lan["LAN 10.10.1.0/24"]
-            subgraph srv["<b>Node: sd-tempo-mcp</b> — 10.10.1.45<br/>Ubuntu 24.04 LTS"]
+            subgraph srv["<b>Node: sd-tempo-mcp</b> — 10.10.1.45<br/>Ubuntu 22.04 LTS"]
                 subgraph k3s["k3s v1.33.13+k3s1 — single node"]
                     CP["Control plane<br/><i>API server, scheduler,<br/>controller-manager</i>"]
                     DB[("<b>SQLite</b><br/>/var/lib/rancher/k3s/<br/>server/db<br/><i>not etcd</i>")]

@@ -8,7 +8,7 @@ guide is the sequence and the decisions.
 
 | Requirement | Why it is checked first |
 |---|---|
-| Ubuntu 24.04 LTS, 4 vCPU, 8GB, 30GB disk | Below this, memory limits at ~150% stop being survivable |
+| Ubuntu 22.04 LTS, 4 vCPU, 8GB, 30GB disk | Below this, memory limits at ~150% stop being survivable |
 | `sudo` and SSH access | Bootstrap runs as root |
 | Public DNS already pointing at the site | HTTP-01 cannot validate otherwise, and certificates are rate limited |
 | DNAT for 80 **and** 443 to the node | Port 80 is required for ACME, not just for redirects |
@@ -135,9 +135,19 @@ spends one of five.
 sudo scripts/backup-platform-state.sh
 ```
 
-Captures the k3s SQLite datastore, certificate Secrets, Argo CD state, and the runtime
-environment. It contains certificate private keys and datastore credentials — `.gitignore`
-blocks `platform-state*/`, `tls-*.json`, `acme-*.json`, and `runtime-*.json` for that reason.
+Captures **certificate Secrets and the ACME account key** — Kubernetes Secrets, and nothing
+else. It contains private keys, which is why `.gitignore` blocks `platform-state*/`,
+`tls-*.json`, `acme-*.json`, and `runtime-*.json`.
+
+Application data needs the second script:
+
+```sh
+sudo scripts/backup-datastores.sh --output-dir /srv/novashop-backup
+sudo scripts/verify-backup.sh /srv/novashop-backup/<timestamp>
+```
+
+That one dumps PostgreSQL and takes an online copy of the k3s SQLite datastore. **Run both.**
+Neither covers what the other does.
 
 Prometheus, Loki, and Alertmanager volumes are **not** in the backup. They are node-local by
 definition and their contents are observational and bounded by retention anyway. Excluding

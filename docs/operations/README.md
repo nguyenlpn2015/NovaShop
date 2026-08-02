@@ -11,6 +11,7 @@ Everything needed to run this platform, in the order you are likely to need it.
 | [Observability](observability-guide.md) | Reading metrics, logs, dashboards, and alerts |
 | [Troubleshooting](troubleshooting.md) | Something is wrong and you do not yet know what |
 | [Platform Upgrade](platform-upgrade.md) | Moving k3s, Argo CD, or a chart to a new version |
+| [Backup and Restore](backup-and-restore.md) | Protecting data, and proving the backup works |
 | [Disaster Recovery](../recovery/disaster-recovery.md) | The node is gone |
 
 ## Reference

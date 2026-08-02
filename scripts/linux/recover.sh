@@ -249,6 +249,25 @@ restore_certificate_material() {
     --input-dir "${BACKUP_DIRECTORY}"
 }
 
+# Application data is restored before Argo CD reconciles, for a reason that is easy to miss:
+# the backend's /ready probe checks that PostgreSQL is *reachable*, not that it holds data.
+# Skip this and the pods go Ready, every Application reports Healthy, no alert fires, and the
+# application serves an empty database.
+restore_datastore_contents() {
+  [[ -n "${BACKUP_DIRECTORY}" ]] || return 0
+
+  if [[ ! -f "${BACKUP_DIRECTORY}/manifest.txt" ]]; then
+    log 'No datastore backup in this set; skipping. Certificate material is restored separately.'
+    return 0
+  fi
+
+  log 'Verifying the datastore backup before restoring it.'
+  bash "${REPO_ROOT}/scripts/verify-backup.sh" "${BACKUP_DIRECTORY}" --skip-age     || die 'The datastore backup failed verification. Restore aborted before any change.'
+
+  log 'Restoring datastore contents.'
+  bash "${REPO_ROOT}/scripts/restore-datastores.sh" --from "${BACKUP_DIRECTORY}" --force
+}
+
 reconcile_desired_state() {
   log 'Reconciling NovaShop from the GitOps repository.'
   export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
@@ -312,6 +331,7 @@ main() {
   load_platform_environment
   rebuild_cluster
   restore_certificate_material
+  restore_datastore_contents
   reconcile_desired_state
   verify_recovery
 

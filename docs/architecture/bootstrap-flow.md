@@ -5,7 +5,7 @@ twice.
 
 ```mermaid
 flowchart TB
-    START(["Fresh Ubuntu 24.04 node"]) --> ENV["<b>load_platform_environment</b><br/>/root/.novashop-platform.env<br/><i>root, 0600, never in Git</i>"]
+    START(["Fresh Ubuntu 22.04 node"]) --> ENV["<b>load_platform_environment</b><br/>/root/.novashop-platform.env<br/><i>root, 0600, never in Git</i>"]
     ENV --> PREP["<b>prepare_server</b><br/>packages · swap off<br/>time sync · hostname"]
     PREP --> LIM["<b>configure-node-limits.sh</b><br/>fs.inotify.max_user_instances 128 → 512<br/>max_user_watches → 524288"]
     LIM --> FW{"MANAGEMENT_CIDR<br/>set?"}
