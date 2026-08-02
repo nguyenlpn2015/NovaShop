@@ -14,6 +14,24 @@ config:
 secrets:
   existingSecret: novashop-secrets
 
+# Ingress default-deny per namespace, with explicit exceptions.
+#
+# Enforcement was proven on this cluster before the templates were written: k3s runs
+# kube-router's netpol controller, and a deny-all took a probe pod from REACHABLE to
+# BLOCKED. Shipping policies onto a cluster that ignores them would be worse than shipping
+# none, because `kubectl get networkpolicy` would then imply protection that does not exist.
+networkPolicy:
+  enabled: true
+
+  # Admitted for kubelet probes. Readiness and liveness checks come from the node, not from
+  # a pod, so a namespace-only rule takes every replica NotReady the moment it applies —
+  # and with no ready endpoint Traefik returns 503. Scoped to the node network rather than
+  # left open.
+  nodeNetwork: 10.10.1.0/24
+
+  # Prometheus scrapes the backend's container port from here.
+  observabilityNamespace: observability
+
 backend:
   replicaCount: 2
   revisionHistoryLimit: 5

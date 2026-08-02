@@ -76,6 +76,7 @@ Index in [operations/README.md](operations/README.md).
 ## Security
 
 - [Hardening](security/hardening.md) — including open items
+- [Network policy](security/network-policy.md) — default-deny ingress, and how enforcement was proven
 - [ADR 010: Secret management](../adr/010-secret-management.md)
 - [SECURITY.md](../SECURITY.md) — disclosure policy
 

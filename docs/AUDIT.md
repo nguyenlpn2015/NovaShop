@@ -176,7 +176,11 @@ key authentication is not yet enforced. Recorded as an open item in
 stops a direct `kubectl apply`. No Kyverno, no Gatekeeper, no Pod Security Admission enforcement
 documented.
 
-**No network policies.** Any pod can reach any pod, and any pod can reach the host datastores.
+**Network policies covered nothing this platform owns.** Seven existed, all shipped by the
+Argo CD install manifest and scoped to `argocd`. Every namespace the platform owns —
+`novashop-*`, `observability`, `cert-manager` — had none, so any pod could reach any pod and
+the host datastores. Addressed for the application namespaces; `observability` and
+`cert-manager` remain open.
 
 **No image signing or provenance.** Images are scanned, not signed. No cosign, no SLSA
 attestation.
@@ -373,7 +377,7 @@ Ordered by value per unit of effort. Nothing here requires a new platform techno
 | 12 | Merge or rename the layered `docs/` pairs; move sprint artefacts to `docs/SPRINTS/`; retire "Deployment Target A/B" |
 | 13 | Fill or delete `PROJECT_GLOSSARY.md` and `LEARNING_LOG.md` |
 | 14 | Restructure `README.md` — short competence summary, links out |
-| 15 | Default-deny network policies |
+| 15 | Default-deny network policies for `observability` and `cert-manager` — the application namespaces are done |
 | 16 | Sign images with cosign; publish provenance |
 | 17 | Re-run this audit and publish the delta |
 
