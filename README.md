@@ -40,6 +40,7 @@ Measured on the running platform, not aspirational.
 | If you have… | Read |
 |---|---|
 | **5 minutes** | This page, then [Architecture Overview](docs/architecture/overview.md) |
+| **One hour, everything** | [The Complete Guide](docs/THE_COMPLETE_GUIDE.md) — the whole platform in one file |
 | **15 minutes** | Add [Repository Audit](docs/AUDIT.md) — the honest scoring |
 | **You are interviewing me** | [Interview Guide](docs/INTERVIEW_GUIDE.md) — a walkthrough and the questions I expect |
 | **You are preparing to be interviewed** | [docs/interview/](docs/interview/) — teaching guide, 107 questions, cheat sheets |
@@ -181,12 +182,12 @@ adr/                    15 decision records
 backend/                FastAPI + hand-written Prometheus instrumentation
 frontend/               Next.js
 helm/novashop/          The application chart
-kubernetes/             Platform component values, ingress baselines, cert-manager
+kubernetes/             Platform component values, ingress phases, cert-manager
 terraform/              7 layers, non-cloud IaC
 argocd/                 Bootstrap manifests and the pinned Argo CD digest
 scripts/                Bootstrap, validation gates, backup, restore, recovery
 runbooks/               An index; the runbooks live beside the alerts they serve
-docs/                   90 documents — architecture, operations, runbooks, audits, academy
+docs/                   92 documents — architecture, operations, runbooks, audits, academy
 diagrams/               Subsystem diagrams predating docs/architecture/
 .github/                CI, release, validation workflow, rulesets as JSON
 ```

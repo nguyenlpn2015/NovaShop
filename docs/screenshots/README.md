@@ -20,17 +20,21 @@ exposed. A reader cannot see them any other way.
 
 ## What to capture
 
-Six images, in this order. Each has a stated purpose — if a capture does not serve its
-purpose, it is not worth adding.
+Six images. Each has a stated purpose — if a capture does not serve its purpose, it is not
+worth adding.
+
+Filenames follow the numbered scheme in [EVIDENCE_CATALOG.md](../EVIDENCE_CATALOG.md), which
+is ordered the way a demonstration runs. The numbers are not contiguous here because the
+catalog also covers browser and CLI evidence that needs no port-forward.
 
 | File | Shows | Purpose |
 |---|---|---|
-| `argocd-applications.png` | The Applications list, all 12 Synced and Healthy | The single most legible proof that GitOps is real here |
-| `argocd-resource-tree.png` | `novashop-production` expanded to its resources | Shows sync waves and ownership, which no table conveys |
-| `grafana-platform.png` | The platform dashboard with live data | Metrics are being collected, not merely configured |
-| `grafana-logs.png` | Loki with a query returning journal and container logs | Two log sources, correctly labelled |
-| `prometheus-targets.png` | `/targets`, 31 up | The page on which the scrape-port defect was found |
-| `alerts-rules.png` | The rules list, 14 rules, none firing | Alerting exists and evaluates |
+| `09-argocd.png` | The Applications list, all 12 Synced and Healthy | The single most legible proof that GitOps is real here |
+| `10-argocd-tree.png` | `novashop-production` expanded to its resources | Shows sync waves and ownership, which no table conveys |
+| `11-prometheus-targets.png` | `/targets`, 31 up | The page on which the scrape-port defect was found |
+| `12-grafana.png` | The platform dashboard with live data | Metrics are being collected, not merely configured |
+| `13-loki.png` | Loki with a query returning journal and container logs | Two log sources, correctly labelled |
+| `14-alert-rules.png` | The rules list, 14 rules, none firing | Alerting exists and evaluates |
 
 ## How to reach each console
 

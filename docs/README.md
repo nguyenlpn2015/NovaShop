@@ -4,6 +4,7 @@
 
 | If you want to… | Read |
 |---|---|
+| Understand everything, in one file | [The Complete Guide](THE_COMPLETE_GUIDE.md) |
 | Understand what this is | [Architecture Overview](architecture/overview.md) |
 | See why each technology was chosen | [Architecture Decision Records](../adr/) |
 | Run it on your machine | [Local Development](operations/local-development.md) |
@@ -113,6 +114,7 @@ variant.
 - [Interview guide](INTERVIEW_GUIDE.md) — the ten-minute tour
 - [interview/](interview/) — 107 questions with answers, cheat sheets
 - [academy/](academy/) — 19 modules that teach the platform from its own files
+- [Evidence catalog](EVIDENCE_CATALOG.md) — every artefact worth capturing, numbered in demo order
 - [screenshots/](screenshots/) — which consoles to capture, and the rules for capturing them
 
 ## Project

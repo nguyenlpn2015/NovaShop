@@ -16,6 +16,41 @@ Publicly expose only TCP 80 and 443 through FortiGate. Keep these private:
 - Traefik dashboard and metrics;
 - node and container runtime endpoints.
 
+### Known gap: the application metrics endpoint is public
+
+The policy above says to keep metrics private. **`/metrics` on the backend host is reachable
+from the internet** and returns roughly seventy series:
+
+```sh
+curl -s https://api.novashop.smartdev.vn/metrics | head
+```
+
+What that discloses: `novashop_build_info` with the application version and environment, the
+complete route inventory, request counts, and latency distributions. No credentials, no
+customer data. Severity is low — this is information disclosure, not access.
+
+**Why it happens.** The backend Ingress routes `/` on `api.<env>.novashop.smartdev.vn` to the
+backend Service. Every path the application serves is therefore public, and `/metrics` is one
+of them. Prometheus does not use that route: it scrapes the pod address directly on the
+container port, so nothing internal depends on the endpoint being publicly reachable.
+
+**Why it is not fixed here.** The correct fix spans two repositories and one whitelist:
+
+1. A Traefik `Middleware` restricting source addresses, in the Helm chart.
+2. A second Ingress rule matching `/metrics` on the backend host, carrying that middleware.
+   Traefik prefers the longer path, so public requests to `/metrics` receive 403 while `/`
+   is unaffected.
+3. `traefik.io/v1alpha1: Middleware` added to `namespaceResourceWhitelist` in the
+   `novashop` AppProject, which lives in NovaShop-GitOps.
+
+Step 3 is the one that decides the outcome. A kind absent from the whitelist is refused **at
+sync time**, after the manifest has rendered, validated, and merged — the failure Loki's
+StatefulSet already demonstrated. Doing this correctly means changing the whitelist first,
+confirming it, then shipping the middleware.
+
+Until then this is a recorded decision rather than an oversight. Do not include the endpoint
+in a screen recording — see [EVIDENCE_CATALOG.md](../EVIDENCE_CATALOG.md).
+
 ## Traefik Dashboard
 
 - Keep the dashboard disabled unless operators actively need it.
