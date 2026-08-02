@@ -153,6 +153,42 @@ kubectl label namespace $Namespace `
     pod-security.kubernetes.io/warn=restricted --overwrite | Out-Null
 Write-Ok 'Created, with pod-security enforce=restricted'
 
+# -----------------------------------------------------------------------------
+# Secret
+# -----------------------------------------------------------------------------
+#
+# Created before the datastores, because PostgreSQL now reads its password from
+# it. One source for the credential rather than two that can silently disagree.
+#
+# The password is generated, not written down anywhere. Even a disposable
+# cluster should not carry a literal in a tracked file: the habit is what
+# matters, and a fixed string in Git is a fixed string in Git.
+#
+# An existing Secret is reused rather than regenerated. The PersistentVolumeClaim
+# survives everything except `-Uninstall`, and PostgreSQL keeps the password it
+# was initialised with -- so a fresh password on a redeploy would authenticate
+# against a database that had never heard of it.
+
+Write-Step 'Application Secret'
+$existing = kubectl get secret novashop-local-secrets -n $Namespace -o jsonpath='{.data.POSTGRES_PASSWORD}' 2>$null
+if ($existing) {
+    $password = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($existing))
+    Write-Ok 'Reusing the existing credential, so it still matches the volume'
+} else {
+    $bytes = [byte[]]::new(24)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    # Hex rather than base64: the password goes into a URL, and base64 contains
+    # "+" and "/", which then need percent-encoding that something forgets.
+    $password = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    Write-Ok 'Generated a new credential'
+}
+
+kubectl create secret generic novashop-local-secrets -n $Namespace `
+    --from-literal=POSTGRES_PASSWORD="$password" `
+    --from-literal=DATABASE_URL="postgresql://novashop:$password@postgres:5432/novashop" `
+    --from-literal=REDIS_URL='redis://redis:6379/0' `
+    --dry-run=client -o yaml | kubectl apply -f - | Out-Null
+
 Write-Step 'PostgreSQL and Redis (local only)'
 $datastores = Join-Path $RepoRoot 'kubernetes/local/datastores.yaml'
 if (-not (Test-Path $datastores)) { throw "Missing $datastores" }
@@ -161,23 +197,6 @@ kubectl apply -n $Namespace -f $datastores | Out-Null
 Write-Ok 'Waiting for both to become ready'
 kubectl wait --for=condition=available --timeout=180s -n $Namespace deployment/postgres deployment/redis | Out-Null
 Write-Ok 'Ready'
-
-# -----------------------------------------------------------------------------
-# Secret
-# -----------------------------------------------------------------------------
-#
-# Created here rather than templated into the chart, which is how the real
-# platform does it: the chart requires an existing Secret and refuses to render
-# without one. The password is local-only and fixed, so `-Uninstall` followed by
-# a redeploy lands on the same credentials as the PersistentVolumeClaim it
-# reconnects to.
-
-Write-Step 'Application Secret'
-kubectl create secret generic novashop-local-secrets -n $Namespace `
-    --from-literal=DATABASE_URL='postgresql://novashop:localdev@postgres:5432/novashop' `
-    --from-literal=REDIS_URL='redis://redis:6379/0' `
-    --dry-run=client -o yaml | kubectl apply -f - | Out-Null
-Write-Ok 'novashop-local-secrets'
 
 # -----------------------------------------------------------------------------
 # Render and apply the chart

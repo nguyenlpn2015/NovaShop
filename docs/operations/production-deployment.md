@@ -67,14 +67,23 @@ nothing, which is what makes it safe to run during an incident.
 Argo CD will reconcile everything except these. Grafana and the exporters will not become
 healthy until they exist.
 
+Read the values in rather than typing them on the command line -- a password in
+an argument is a password in the shell history and in `ps` output while the
+command runs.
+
 ```sh
+read -rsp 'Exporter password: ' EXPORTER_PASSWORD; echo
+read -rsp 'Redis password: '    REDIS_PASSWORD;    echo
+
 kubectl -n observability create secret generic novashop-grafana-admin \
   --from-literal=admin-user=admin \
   --from-literal=admin-password="$(openssl rand -base64 24)"
 
 kubectl -n observability create secret generic novashop-datastore-exporter \
-  --from-literal=DATA_SOURCE_NAME='postgresql://novashop_exporter:PASS@10.10.1.45:5432/novashop?sslmode=disable' \
-  --from-literal=REDIS_PASSWORD='PASS'
+  --from-literal=DATA_SOURCE_NAME="postgresql://novashop_exporter:${EXPORTER_PASSWORD}@10.10.1.45:5432/novashop?sslmode=disable" \
+  --from-literal=REDIS_PASSWORD="${REDIS_PASSWORD}"
+
+unset EXPORTER_PASSWORD REDIS_PASSWORD
 ```
 
 Record the Grafana password somewhere durable. It is not in Git and it is not recoverable

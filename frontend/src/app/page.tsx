@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Hero } from "@/components/Hero";
+import { CategoryTiles, EditorialBand, PromiseStrip } from "@/components/Marketing";
 import { ProductCard } from "@/components/ProductCard";
 import { getCategories, getProducts } from "@/lib/api";
 
@@ -10,68 +12,52 @@ import { getCategories, getProducts } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [categories, featured] = await Promise.all([
+  // One round trip each, in parallel. Sequentially these would add their
+  // latencies together for no reason: neither depends on the other.
+  const [categories, newest, popular] = await Promise.all([
     getCategories(),
     getProducts(new URLSearchParams({ page_size: "8", sort: "newest" })),
+    getProducts(new URLSearchParams({ page_size: "4", sort: "price_desc" })),
   ]);
 
   return (
-    <div className="space-y-12">
-      <section
-        className="card animate-fade-up overflow-hidden bg-gradient-to-br
-                   from-accent/10 via-surface-raised to-surface-raised p-8 sm:p-12"
-      >
-        <p className="text-sm font-medium uppercase tracking-widest text-accent">
-          Cloud-native commerce
-        </p>
-        <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">
-          A small shop, carried by a platform worth looking at.
-        </h1>
-        <p className="mt-4 max-w-xl text-content-muted">
-          GitOps delivery, pre-merge guardrails, runbook-backed alerting and
-          documented recovery — running on a single node.
-        </p>
-        <Link
-          href="/products"
-          className="mt-6 inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm
-                     font-medium text-accent-contrast transition hover:bg-accent-hover"
-        >
-          Browse products
-        </Link>
-      </section>
+    <div className="space-y-14">
+      <Hero />
+
+      <PromiseStrip />
+
+      <CategoryTiles categories={categories} />
 
       <section>
-        <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-content-muted">
-          Categories
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Link
-              key={category.id}
-              href={`/products?category=${category.slug}`}
-              className="rounded-full border border-edge bg-surface-raised px-4 py-1.5
-                         text-sm transition hover:border-accent hover:text-accent"
-            >
-              {category.name}
-              <span className="ml-1.5 text-content-faint">
-                {category.product_count}
-              </span>
-            </Link>
+        <div className="mb-4 flex items-baseline justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">New arrivals</h2>
+            <p className="text-sm text-content-muted">
+              The most recent additions across every category.
+            </p>
+          </div>
+          <Link href="/products" className="text-sm text-accent hover:underline">
+            All {newest.page.total} products →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {newest.items.map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </section>
 
+      <EditorialBand />
+
       <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-content-muted">
-            Newest
-          </h2>
-          <Link href="/products" className="text-sm text-accent hover:underline">
-            All {featured.page.total} products →
-          </Link>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">The considered end</h2>
+          <p className="text-sm text-content-muted">
+            Where the materials cost more and it shows.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {featured.items.map((product) => (
+          {popular.items.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

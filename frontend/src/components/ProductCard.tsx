@@ -57,12 +57,31 @@ export function ProductCard({ product }: { product: ProductSummary }) {
                  hover:border-accent/40 hover:shadow-lg hover:shadow-black/5"
     >
       <div
-        className="relative aspect-[4/3] overflow-hidden"
+        className="relative aspect-square overflow-hidden"
         style={{
           background: `linear-gradient(135deg,
             hsl(${hue} 62% 62%), hsl(${(hue + 48) % 360} 58% 44%))`,
         }}
       >
+        {/* Square, not 4:3. Product photography is square almost everywhere,
+            and a grid of squares reads as a catalogue rather than as a blog. */}
+        {!product.in_stock && (
+          <span
+            className="absolute left-2 top-2 z-10 rounded-full bg-surface/90 px-2 py-0.5
+                       text-[10px] font-semibold uppercase tracking-wide
+                       text-content-muted backdrop-blur"
+          >
+            Sold out
+          </span>
+        )}
+        {product.rating !== null && product.rating >= 4.5 && product.in_stock && (
+          <span
+            className="absolute left-2 top-2 z-10 rounded-full bg-positive px-2 py-0.5
+                       text-[10px] font-semibold uppercase tracking-wide text-white"
+          >
+            Highly rated
+          </span>
+        )}
         {/* The image sits over a gradient derived from the slug, so a slow or
             missing file degrades to a coloured tile rather than a broken icon.
             Plain <img> rather than next/image: optimisation writes to
@@ -73,11 +92,13 @@ export function ProductCard({ product }: { product: ProductSummary }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover transition duration-300
-                     group-hover:scale-[1.03]"
+          className={`h-full w-full object-cover transition duration-500
+                     group-hover:scale-[1.06] ${product.in_stock ? "" : "opacity-60 saturate-50"}`}
         />
       </div>
 
+      {/* A quiet lift on hover. Enough to feel responsive, not enough to make
+          a grid of twelve cards feel unstable. */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <span className="text-xs uppercase tracking-wide text-content-faint">
           {product.category_name}
@@ -100,7 +121,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
 export function ProductCardSkeleton() {
   return (
     <div className="card overflow-hidden">
-      <div className="skeleton aspect-[4/3]" />
+      <div className="skeleton aspect-square" />
       <div className="space-y-3 p-4">
         <div className="skeleton h-3 w-16 rounded" />
         <div className="skeleton h-4 w-3/4 rounded" />
