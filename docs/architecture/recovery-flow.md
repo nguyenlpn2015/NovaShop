@@ -64,9 +64,16 @@ matter how healthy the cluster is.
 
 | Script | Captures / restores |
 |---|---|
-| `scripts/backup-platform-state.sh` | k3s SQLite datastore, certificate Secrets, Argo CD state, runtime environment |
-| `scripts/restore-platform-state.sh` | The same, onto a prepared node |
-| `scripts/linux/recover.sh` | Orchestrates the whole sequence above |
+| `scripts/backup-platform-state.sh` | Certificate Secrets and the ACME account key. **Kubernetes Secrets only** |
+| `scripts/backup-datastores.sh` | PostgreSQL dump and an online copy of the k3s SQLite datastore |
+| `scripts/verify-backup.sh` | Proves a backup set is readable, without restoring it |
+| `scripts/restore-datastores.sh` | PostgreSQL and SQLite, onto a prepared node |
+| `scripts/restore-platform-state.sh` | Certificate Secrets, onto a prepared node |
+| `scripts/linux/recover.sh` | Orchestrates the sequence above |
+
+An earlier version of this table claimed `backup-platform-state.sh` captured the SQLite
+datastore and the runtime environment. It did not, and never had — it exports Kubernetes
+Secrets. `backup-datastores.sh` exists because of that gap.
 
 Captured state is treated as sensitive. `.gitignore` blocks `tls-*.json`,
 `acme-*.json`, `runtime-*.json`, and `platform-state*/`, because a backup of this

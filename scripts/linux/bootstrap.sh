@@ -76,6 +76,7 @@ prepare_server() {
     git \
     jq \
     openssh-client \
+    sqlite3 \
     tar \
     ufw
 

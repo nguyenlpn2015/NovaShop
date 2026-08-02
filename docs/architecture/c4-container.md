@@ -7,7 +7,7 @@ other. Versions are the versions deployed.
 flowchart TB
     IN["Internet"] --> TR
 
-    subgraph node["Ubuntu 24.04 node — 10.10.1.45 — k3s v1.33.13+k3s1"]
+    subgraph node["Ubuntu 22.04 node — 10.10.1.45 — k3s v1.33.13+k3s1"]
         subgraph ks["kube-system"]
             TR["<b>Traefik</b> 3.7.4<br/>chart 40.1.3+up40.1.0<br/><i>ingress, TLS termination</i><br/>metrics: pod :9100"]
             CD["CoreDNS"]

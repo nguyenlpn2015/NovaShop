@@ -50,6 +50,7 @@ source "${REPO_ROOT}/scripts/lib/edge-phase.sh"
 BACKUP_DIRECTORY=""
 ACCEPT_CERTIFICATE_REISSUE=false
 SKIP_VERIFY=false
+PRECONDITIONS_ONLY=false
 PRECONDITION_FAILURES=0
 
 log() {
@@ -88,6 +89,9 @@ Usage:
                                  request new certificates, consuming Let's
                                  Encrypt issuance quota.
   --skip-verify                  Skip the post-recovery verification run.
+  --preconditions-only           Check every precondition, report, and exit without
+                                 changing anything. Use this to inspect readiness on a
+                                 running platform.
 EOF
 }
 
@@ -119,8 +123,18 @@ check_platform_environment_file() {
     return
   fi
 
-  if ! grep --quiet '^[[:space:]]*DATABASE_URL=' "${PLATFORM_ENV_FILE}" \
-    || ! grep --quiet '^[[:space:]]*REDIS_URL=' "${PLATFORM_ENV_FILE}"; then
+  # The `export ` prefix is optional and must be tolerated.
+  #
+  # This check grepped '^[[:space:]]*DATABASE_URL=' and the real file declares
+  # `export DATABASE_URL=`, so it matched nothing. Recovery aborted at its first
+  # precondition on a completely healthy platform — meaning the disaster recovery script
+  # could never have run, and nobody knew because it had never been run.
+  #
+  # The same mismatch was found and fixed in configure-datastores.sh earlier. Finding it a
+  # second time in a different script is the argument for exercising recovery rather than
+  # reviewing it.
+  if ! grep --quiet --extended-regexp '^[[:space:]]*(export[[:space:]]+)?DATABASE_URL=' "${PLATFORM_ENV_FILE}" \
+    || ! grep --quiet --extended-regexp '^[[:space:]]*(export[[:space:]]+)?REDIS_URL=' "${PLATFORM_ENV_FILE}"; then
     precondition_failed \
       "platform environment file declares DATABASE_URL and REDIS_URL" \
       "Both variables are required to recreate the runtime Secrets."
@@ -249,6 +263,25 @@ restore_certificate_material() {
     --input-dir "${BACKUP_DIRECTORY}"
 }
 
+# Application data is restored before Argo CD reconciles, for a reason that is easy to miss:
+# the backend's /ready probe checks that PostgreSQL is *reachable*, not that it holds data.
+# Skip this and the pods go Ready, every Application reports Healthy, no alert fires, and the
+# application serves an empty database.
+restore_datastore_contents() {
+  [[ -n "${BACKUP_DIRECTORY}" ]] || return 0
+
+  if [[ ! -f "${BACKUP_DIRECTORY}/manifest.txt" ]]; then
+    log 'No datastore backup in this set; skipping. Certificate material is restored separately.'
+    return 0
+  fi
+
+  log 'Verifying the datastore backup before restoring it.'
+  bash "${REPO_ROOT}/scripts/verify-backup.sh" "${BACKUP_DIRECTORY}" --skip-age     || die 'The datastore backup failed verification. Restore aborted before any change.'
+
+  log 'Restoring datastore contents.'
+  bash "${REPO_ROOT}/scripts/restore-datastores.sh" --from "${BACKUP_DIRECTORY}" --force
+}
+
 reconcile_desired_state() {
   log 'Reconciling NovaShop from the GitOps repository.'
   export ARGOCD_APPLICATION_MANIFEST="${REPO_ROOT}/argocd/application-ubuntu-k3s.yaml"
@@ -285,6 +318,9 @@ main() {
       --skip-verify)
         SKIP_VERIFY=true
         ;;
+      --preconditions-only)
+        PRECONDITIONS_ONLY=true
+        ;;
       -h | --help)
         usage
         exit 0
@@ -309,9 +345,20 @@ main() {
   fi
 
   run_preconditions
+
+  # Inspecting readiness on a running platform must not be able to start a rebuild by
+  # accident. During the 2026-08-02 exercise recover.sh was invoked to observe its
+  # preconditions and ran on into rebuild_cluster; no harm followed because the install
+  # scripts are idempotent, but that was luck rather than design.
+  if [[ "${PRECONDITIONS_ONLY}" == "true" ]]; then
+    log 'Preconditions only; nothing was changed.'
+    return 0
+  fi
+
   load_platform_environment
   rebuild_cluster
   restore_certificate_material
+  restore_datastore_contents
   reconcile_desired_state
   verify_recovery
 
