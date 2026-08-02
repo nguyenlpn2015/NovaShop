@@ -119,6 +119,22 @@ backend:
       drop:
         - ALL
 
+  # Autoscaling readiness. Off by default: one node means an HPA can create
+  # replicas but has nowhere to put them, so it adds scheduling churn and no
+  # capacity. See templates/autoscaling.yaml.
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+  # Also off by default. A budget of minAvailable 1 against a single replica
+  # blocks every voluntary eviction, including the node drain the budget is
+  # meant to make safe.
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
 frontend:
   replicaCount: 2
   revisionHistoryLimit: 5
@@ -172,6 +188,22 @@ frontend:
     capabilities:
       drop:
         - ALL
+
+  # Autoscaling readiness. Off by default: one node means an HPA can create
+  # replicas but has nowhere to put them, so it adds scheduling churn and no
+  # capacity. See templates/autoscaling.yaml.
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+  # Also off by default. A budget of minAvailable 1 against a single replica
+  # blocks every voluntary eviction, including the node drain the budget is
+  # meant to make safe.
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
 
 ingress:
   enabled: true

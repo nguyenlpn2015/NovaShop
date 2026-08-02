@@ -62,6 +62,42 @@ export async function apiGet<T>(
   }
 }
 
+/**
+ * A write, with the status passed back rather than thrown.
+ *
+ * The catalogue helpers throw on a non-2xx because a failed read is a fault.
+ * A failed write often is not: 409 from checkout means "not enough stock",
+ * which is a message the customer should see, at a status that says it is a
+ * conflict and not a server error.
+ */
+export async function apiSend(
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      method,
+      signal: controller.signal,
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+    });
+    const text = await response.text();
+    return {
+      status: response.status,
+      body: text ? JSON.parse(text) : null,
+    };
+  } catch {
+    return { status: 502, body: { detail: "The API is unreachable." } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type Page = {
   total: number;
   page: number;
@@ -116,3 +152,46 @@ export const getProduct = (slug: string) =>
 
 export const searchProducts = (term: string) =>
   apiGet<ProductSummary[]>(`/search?q=${encodeURIComponent(term)}`);
+
+export type CartLine = {
+  product_id: number;
+  slug: string;
+  name: string;
+  image_path: string;
+  unit_price_cents: number;
+  quantity: number;
+  subtotal_cents: number;
+  in_stock: boolean;
+};
+
+export type OrderSummary = {
+  id: number;
+  status: string;
+  total_cents: number;
+  created_at: string;
+  customer: string;
+  line_count: number;
+};
+
+export type OrderDetail = Omit<OrderSummary, "line_count"> & {
+  items: {
+    name: string;
+    slug: string;
+    image_path: string;
+    quantity: number;
+    unit_price_cents: number;
+    subtotal_cents: number;
+  }[];
+};
+
+export type AdminStats = {
+  order_count: number;
+  revenue_cents: number;
+  product_count: number;
+  revenue_by_day: { day: string; revenue_cents: number }[];
+  low_stock: { name: string; slug: string; quantity: number }[];
+};
+
+export const getOrders = () => apiGet<OrderSummary[]>("/orders?limit=20");
+export const getOrder = (id: number) => apiGet<OrderDetail>(`/orders/${id}`);
+export const getAdminStats = () => apiGet<AdminStats>("/admin/stats");

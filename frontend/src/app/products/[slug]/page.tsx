@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddToCart } from "@/components/AddToCart";
 import { RatingStars, StockBadge } from "@/components/ProductCard";
 import { ApiError, getProduct } from "@/lib/api";
 import { formatPrice, slugHue } from "@/lib/format";
@@ -91,19 +92,10 @@ export default async function ProductPage({
           </div>
           <p className="text-content-muted">{product.description}</p>
 
-          <button
-            type="button"
-            disabled={!product.in_stock}
-            className="mt-2 w-full rounded-lg bg-accent px-5 py-3 font-medium
-                       text-accent-contrast transition hover:bg-accent-hover
-                       disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-          >
-            Add to cart
-          </button>
-          {/* Honest about what is not built yet, rather than a button that
-              silently does nothing. */}
+          <AddToCart productId={product.id} inStock={product.in_stock} />
           <p className="text-xs text-content-faint">
-            The cart arrives with the next milestone. This button is inert.
+            The cart lives in Redis and survives a refresh, a new tab, and a pod
+            restart. Checkout creates a real order; no payment is taken.
           </p>
         </div>
       </div>

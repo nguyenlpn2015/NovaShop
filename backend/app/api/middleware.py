@@ -18,6 +18,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.logging import request_id_var
@@ -79,3 +80,40 @@ async def request_id_middleware(
 
     response.headers[HEADER] = request_id
     return response
+
+
+# Paths a fault must never affect.
+#
+# Liveness must keep answering: a 503 there restarts the container, which ends
+# the demonstration and, in a real incident, removes the process that could have
+# explained itself. /metrics must keep answering because the whole purpose of
+# the fault is to move a metric, and a scrape failure would replace the signal
+# with an absence.
+FAULT_EXEMPT = frozenset({"/live", "/health", "/metrics", "/demo/fault"})
+
+
+async def fault_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Return 503 for application traffic while a fault is active.
+
+    Deliberately not an exception: raising would produce a stack trace in the
+    logs on every request and bury the reason. A plain 503 with a body that says
+    it is deliberate is what an operator needs to see.
+    """
+    from app.api.routes.shop import fault_is_active
+
+    if fault_is_active() and request.url.path not in FAULT_EXEMPT:
+        logger.warning(
+            "request failed by fault injection",
+            extra={"method": request.method, "path": request.url.path, "status": 503},
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Fault injection is active. This failure is deliberate.",
+            },
+        )
+
+    return await call_next(request)

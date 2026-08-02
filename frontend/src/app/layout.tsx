@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { SearchBox, ThemeToggle } from "@/components/Chrome";
+import { CartProvider } from "@/components/CartProvider";
+import { CartBadge, SearchBox, ThemeToggle } from "@/components/Chrome";
+import { ToastProvider } from "@/components/Toast";
 
 import "./globals.css";
 
@@ -39,6 +41,8 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-screen flex-col">
+        <ToastProvider>
+        <CartProvider>
         <header className="sticky top-0 z-40 border-b border-edge bg-surface/85 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
             <Link href="/" className="text-lg font-semibold tracking-tight">
@@ -48,9 +52,13 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               <Link href="/products" className="hover:text-content">
                 Products
               </Link>
+              <Link href="/orders" className="hover:text-content">
+                Orders
+              </Link>
             </nav>
             <div className="ml-auto flex items-center gap-2">
               <SearchBox />
+              <CartBadge />
               <ThemeToggle />
             </div>
           </div>
@@ -76,6 +84,8 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             </p>
           </div>
         </footer>
+        </CartProvider>
+        </ToastProvider>
       </body>
     </html>
   );
