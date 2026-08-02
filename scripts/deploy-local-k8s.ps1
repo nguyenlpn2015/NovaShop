@@ -200,16 +200,22 @@ $rendered = docker run --rm -v "${mount}:/app" -w /app $HelmImage template novas
 if ($LASTEXITCODE -ne 0) { throw "helm template failed:`n$rendered" }
 Write-Ok "$(($rendered | Select-String '^kind:').Count) resources rendered"
 
+# The migration Job is removed before anything is applied, not after.
+#
+# A Job's pod template is immutable, so applying the rendered manifest over a
+# Job left by a previous run is rejected -- and because kubectl applies what it
+# can and reports the rest, the deployment still succeeded while printing a wall
+# of "field is immutable" at the end. Correct outcome, alarming output, and the
+# kind of noise that teaches people to skim past errors.
+#
+# Deleting first means one apply, and silence when it works.
 Write-Step 'Applying'
-$rendered | kubectl apply -n $Namespace -f - | Out-Null
-
-# The migration Job carries an Argo CD hook annotation, which kubectl ignores --
-# so it is applied like any other resource and simply runs. Deleted first
-# because a completed Job's pod template is immutable and a second apply would
-# be rejected.
-Write-Step 'Migration and seed'
 kubectl delete job novashop-migrate -n $Namespace --ignore-not-found --wait=true | Out-Null
 $rendered | kubectl apply -n $Namespace -f - | Out-Null
+
+# The Job carries an Argo CD hook annotation, which kubectl ignores -- so it is
+# applied like any other resource and simply runs.
+Write-Step 'Migration and seed'
 kubectl wait --for=condition=complete --timeout=240s job/novashop-migrate -n $Namespace | Out-Null
 if ($LASTEXITCODE -ne 0) {
     kubectl logs job/novashop-migrate -n $Namespace --tail=40
@@ -243,8 +249,9 @@ Write-Host '  Port-forward (works regardless of ingress):' -ForegroundColor Whit
 Write-Host "    kubectl port-forward -n $Namespace svc/novashop-frontend 3000:80"
 Write-Host '    then open http://localhost:3000'
 Write-Host ''
-Write-Host '  Through Traefik, if you add a hosts entry for novashop.local:' -ForegroundColor White
-Write-Host '    http://novashop.local'
+Write-Host '  Through Traefik, once the hosts entries exist:' -ForegroundColor White
+Write-Host '    http://novashop.local            (add with: .\scripts\configure-local-hosts.ps1, as Administrator)'
+Write-Host '    http://api.novashop.local/docs'
 Write-Host ''
 Write-Host '  Remove everything:' -ForegroundColor White
 Write-Host "    .\scripts\deploy-local-k8s.ps1 -Uninstall"
