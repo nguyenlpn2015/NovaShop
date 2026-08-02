@@ -11,6 +11,8 @@
 | Fix something that is broken | [Troubleshooting](operations/troubleshooting.md) |
 | Respond to an alert | [Runbooks](observability/runbooks/) |
 | Judge the engineering | [Repository Audit](AUDIT.md) |
+| Interview or demo this | [Interview Guide](INTERVIEW_GUIDE.md) |
+| See what went wrong, and how it was found | [Engineering Log](LEARNING_LOG.md) |
 | Judge the Terraform | [Terraform Audit](TERRAFORM_AUDIT.md) |
 
 ## Architecture
@@ -112,7 +114,7 @@ variant.
 - [Project charter](PROJECT_CHARTER.md)
 - [Glossary](PROJECT_GLOSSARY.md)
 - [Sprint records](SPRINTS/)
-- [Learning log](LEARNING_LOG.md)
+- [Engineering log](LEARNING_LOG.md) — defects found, and how
 - [Support](SUPPORT.md)
 
 ## Conventions
