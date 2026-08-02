@@ -13,7 +13,8 @@ disaster recovery — running on a single Ubuntu node.
 The storefront is real -- a catalogue, a cart in Redis, orders written inside a
 transaction. It is deliberately modest, because **the platform around it is the subject.**
 
-**v1.0.0** · Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
+**v1.0.0**, and `main` is 15 commits past it — the storefront, cart, checkout and admin
+landed after the tag. Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
 [staging](https://staging.novashop.smartdev.vn) ·
 [dev](https://dev.novashop.smartdev.vn) ·
 [CHANGELOG](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)
@@ -28,7 +29,7 @@ Measured on the running platform, not aspirational.
 | | |
 |---|---|
 | Argo CD Applications | **12 / 12** Synced and Healthy |
-| Storefront pages | **9**, on three published environments |
+| Storefront pages | **8**, on three published environments plus local |
 | Prometheus scrape targets | **31 / 31** up |
 | Alert rules, each with a runbook | **14**, all verified to resolve to a real file |
 | Automated pre-merge checks | **94** across three gates (39 · 30 · 25) |
@@ -110,7 +111,8 @@ flowchart LR
     GH -.->|"chart + values<br/>pinned by SHA"| GOPS["NovaShop-GitOps"]
     GHCR -.->|"image tag"| GOPS
     GOPS -->|"polled"| ARGO["Argo CD"]
-    ARGO --> APPS["dev · staging · production"]
+    ARGO -->|"PreSync"| MIG["Alembic Job<br/><i>blocks the rollout on failure</i>"]
+    MIG --> APPS["dev · staging · production"]
     ARGO --> EDGE["Traefik + cert-manager"]
     ARGO --> OBS["Prometheus · Grafana<br/>Loki · Alertmanager"]
     TF["Terraform<br/>7 layers"] -.->|"prepares, then hands over"| ARGO
@@ -126,9 +128,12 @@ it:
 
 | | |
 |---|---|
-| Production | [novashop.smartdev.vn](https://novashop.smartdev.vn) — HSTS, Let's Encrypt |
+| Storefront | [novashop.smartdev.vn](https://novashop.smartdev.vn) — HSTS, Let's Encrypt |
+| Catalogue | [/products](https://novashop.smartdev.vn/products) — 128 products, filtering, sorting, pagination |
+| Cart | [/cart](https://novashop.smartdev.vn/cart) — held in Redis, survives a pod restart |
+| Orders · Admin | [/orders](https://novashop.smartdev.vn/orders) · [/admin](https://novashop.smartdev.vn/admin) — aggregates, cached 60s |
 | Staging · Development | [staging](https://staging.novashop.smartdev.vn) · [dev](https://dev.novashop.smartdev.vn) — same chart, different values |
-| Backend, on its own host | [api.novashop.smartdev.vn/health](https://api.novashop.smartdev.vn/health) · [/live](https://api.novashop.smartdev.vn/live) · [/ready](https://api.novashop.smartdev.vn/ready) |
+| Backend, on its own host | [/health](https://api.novashop.smartdev.vn/health) · [/live](https://api.novashop.smartdev.vn/live) · [/ready](https://api.novashop.smartdev.vn/ready) |
 
 `/live` returns healthy while `/ready` reports its dependencies, which is why there are three
 endpoints rather than one — [ADR-backed reasoning](docs/architecture/overview.md).
@@ -150,7 +155,9 @@ and it currently holds the capture procedure rather than the images.
 | Metrics and logs | Prometheus, Grafana, Loki, Alloy | [ADR 009](adr/009-observability-stack.md) · [ADR 004](adr/004-log-collection-agent.md) |
 | Secrets | Created outside Git, by procedure | [ADR 010](adr/010-secret-management.md) |
 | IaC | Terraform, 7 layers, non-cloud | [ADR 012](adr/012-terraform-scope.md) |
-| Application | FastAPI, Next.js, PostgreSQL 14, Redis | — |
+| Application | FastAPI, SQLAlchemy 2, Alembic | — |
+| Storefront | Next.js 15 App Router, Tailwind, server-side rendering | — |
+| Schema migration | Alembic, run as an Argo CD **PreSync** hook | — |
 
 ## What is deliberately absent
 
@@ -158,7 +165,7 @@ Saying no is part of the design. Each has a recorded reason.
 
 | Not here | Why |
 |---|---|
-| Distributed tracing | The backend has no business endpoints; a trace would be `GET /ready` plus two dependency calls — [ADR 011](adr/011-distributed-tracing.md) |
+| Distributed tracing | **Deferred on capacity, not on value.** Two of the three conditions [ADR 011](adr/011-distributed-tracing.md) set for revisiting are now met — checkout spans Redis and PostgreSQL, and every page is a two-service call. The node is at ~150% committed memory; Tempo would displace the observability already running |
 | High availability | One node. Every document says so rather than implying redundancy. |
 | Service mesh, Kyverno, Vault | Pod Security Admission and RBAC already cover what these would add here |
 | Alert routing | Needs a credential this repository does not hold and an on-call decision |
@@ -205,7 +212,7 @@ git clone https://github.com/nguyenlpn2015/NovaShop.git
 git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git
 cd NovaShop
 
-bash scripts/validate-platform.sh          --gitops-dir ../NovaShop-GitOps   # 38 checks
+bash scripts/validate-platform.sh          --gitops-dir ../NovaShop-GitOps   # 39 checks
 bash scripts/validate-gitops-revisions.sh  --gitops-dir ../NovaShop-GitOps   # 30 checks
 bash scripts/validate-observability.sh     --gitops-dir ../NovaShop-GitOps   # 25 checks
 
@@ -234,8 +241,8 @@ Pull requests are welcome, including ones that argue against a decision recorded
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — workflow, required checks, and where to start
 - The three gates run in minutes with no cluster and no credentials; they are the fastest way
   to learn what this platform considers correct
-- The most useful contributions right now: a document that is wrong, frontend tests (there
-  are none), or one of the fifteen unwritten [Academy](docs/academy/) modules
+- The most useful contributions right now: a document that is wrong, coverage measurement
+  for either side, or one of the fifteen unwritten [Academy](docs/academy/) modules
 - Report a vulnerability privately through
   [Security advisories](https://github.com/nguyenlpn2015/NovaShop/security/advisories/new),
   never a public issue — [SECURITY.md](SECURITY.md)
