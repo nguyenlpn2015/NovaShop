@@ -2,6 +2,9 @@
 
 A walkthrough of this platform for a technical interview, and the questions I expect.
 
+**This is the live demo script.** For preparation — the full teaching guide, 107 questions
+across five levels, and cheat sheets — see [interview/](interview/).
+
 ## The ten-minute tour
 
 If you have one screen and ten minutes, this order works.
