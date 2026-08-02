@@ -187,7 +187,7 @@ terraform/              7 layers, non-cloud IaC
 argocd/                 Bootstrap manifests and the pinned Argo CD digest
 scripts/                Bootstrap, validation gates, backup, restore, recovery
 runbooks/               An index; the runbooks live beside the alerts they serve
-docs/                   92 documents — architecture, operations, runbooks, audits, academy
+docs/                   93 documents — architecture, operations, runbooks, audits, academy
 diagrams/               Subsystem diagrams predating docs/architecture/
 .github/                CI, release, validation workflow, rulesets as JSON
 ```

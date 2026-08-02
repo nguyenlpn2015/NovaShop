@@ -23,13 +23,16 @@ class Settings(BaseSettings):
     # slots just by being probed.
     database_pool_max_size: int = 2
 
-    # Metrics are always on; the endpoint is not routable from outside the
-    # cluster because no Ingress rule exposes it.
+    # Metrics are always on. The endpoint is publicly reachable, because the
+    # backend Ingress routes the "/" prefix and every path this application
+    # serves is therefore exposed. Prometheus does not use that route -- it
+    # scrapes the pod directly. See docs/security/hardening.md for the remedy.
     metrics_path: str = "/metrics"
 
-    # Tracing stays off until a collector exists. The OTLP exporter retries on
-    # failure, so enabling it early produces errors in every replica and no
-    # traces. Phase 7 sets this once Alloy is receiving OTLP.
+    # Tracing stays off. The OTLP exporter retries on failure, so enabling it
+    # without a collector produces errors in every replica and no traces.
+    # ADR 011 records the decision not to deploy one, and the conditions that
+    # would reverse it. Setting this variable is all that enabling requires.
     otel_exporter_otlp_endpoint: str = ""
     otel_service_name: str = "novashop-backend"
     otel_traces_sample_ratio: float = 0.1

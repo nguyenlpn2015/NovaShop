@@ -47,6 +47,7 @@ Index in [operations/README.md](operations/README.md).
 | [Troubleshooting](operations/troubleshooting.md) | Something is wrong, cause unknown |
 | [Platform Upgrade](operations/platform-upgrade.md) | Moving k3s, Argo CD, or a chart |
 | [Backup and Restore](operations/backup-and-restore.md) | Protecting data, and proving the backup works |
+| [Application Data Provisioning](operations/application-data-provisioning.md) | One-time node setup: per-environment databases and Redis indices |
 | [Disaster Recovery](recovery/disaster-recovery.md) | The node is gone |
 | [DR exercise, 2026-08-02](recovery/dr-exercise-2026-08-02.md) | What was and was not proven |
 

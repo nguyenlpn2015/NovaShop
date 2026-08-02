@@ -339,6 +339,61 @@ lint_helm_environment() {
   helm lint "${APP_DIR}/helm/novashop" "$@"
 }
 
+# Every kind the chart renders must appear in the novashop AppProject whitelist.
+#
+# Argo CD enforces that whitelist at sync time. A kind omitted from it renders,
+# schema-validates, and merges cleanly, and is refused only once Argo CD tries
+# to apply it -- by which point the pull request is closed and the failure looks
+# like a cluster problem rather than a review miss.
+#
+# This has happened twice: Loki's StatefulSet against the platform project, and
+# the application's NetworkPolicies against this one. The second went unnoticed
+# through a security change whose entire purpose was those policies.
+assert_kinds_are_whitelisted() {
+  local project="${APP_DIR}/argocd/project.yaml"
+  local permitted rendered missing
+
+  if [[ ! -f "${project}" ]]; then
+    fail 'every rendered kind is permitted by the novashop AppProject' \
+      "AppProject not found: ${project}"
+    return
+  fi
+
+  # Only the two whitelist sections count. orphanedResources.ignore also lists
+  # kinds and grants nothing, so a naive grep would treat Secret as permitted.
+  permitted="$(
+    awk '
+      /^[[:space:]]{2}[a-zA-Z]+:/ {
+        inside = ($0 ~ /(cluster|namespace)ResourceWhitelist:/)
+        next
+      }
+      inside && $1 == "kind:" { print $2 }
+    ' "${project}" | sort -u
+  )"
+
+  rendered="$(
+    cat "${TEMPORARY_DIRECTORY}"/helm-*.yaml 2>/dev/null \
+      | awk '$1 == "kind:" && $0 !~ /^[[:space:]]/ { print $2 }' \
+      | sort -u
+  )"
+
+  if [[ -z "${rendered}" ]]; then
+    fail 'every rendered kind is permitted by the novashop AppProject' \
+      'No rendered chart output was found; the render step must run first.'
+    return
+  fi
+
+  missing="$(comm -23 <(printf '%s\n' "${rendered}") <(printf '%s\n' "${permitted}"))"
+
+  if [[ -z "${missing}" ]]; then
+    pass 'every rendered kind is permitted by the novashop AppProject'
+    return
+  fi
+
+  fail 'every rendered kind is permitted by the novashop AppProject' \
+    "$(printf 'not whitelisted: %s\n' ${missing})"$'\n'"Add each to namespaceResourceWhitelist in argocd/project.yaml."$'\n''Argo CD would refuse these at sync time, after this pull request had merged.'
+}
+
 # Argo CD renders the base environment values for the in-cluster overlay and
 # the base values plus the deployment-target overlay for Ubuntu k3s. Both
 # combinations are validated so a target-specific override cannot break only
@@ -380,6 +435,8 @@ validate_helm_renders() {
         "${TEMPORARY_DIRECTORY}/helm-${DEPLOYMENT_TARGET}-${environment}.yaml" \
         "${value_arguments[@]}"
   done
+
+  assert_kinds_are_whitelisted
 }
 
 # Reports a failure unless every supplied "source=version" pair agrees.
