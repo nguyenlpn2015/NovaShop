@@ -48,6 +48,13 @@ ingress:
   enabled: true
   className: traefik
   annotations: {}
+  # Distinct from dev.novashop.local, which the novashop-development namespace
+  # from the earlier Docker Desktop work already claims. Two Ingresses for one
+  # host is not an error -- Traefik simply picks one, and the loser returns 404
+  # from a namespace that looks perfectly healthy. Reusing that hostname to save
+  # an entry in the hosts file cost an afternoon of 404s.
+  #
+  # Added by scripts/configure-local-hosts.ps1.
   frontendHost: novashop.local
   backendHost: api.novashop.local
   tls:

@@ -63,9 +63,11 @@ Then reach it either way:
 kubectl port-forward -n novashop-local svc/novashop-frontend 3000:80
 # http://localhost:3000
 
-# Or through Traefik, once novashop.local resolves to 127.0.0.1:
+# Or through Traefik, once novashop.local resolves to 127.0.0.1.
+# Run as Administrator; it edits the hosts file.
 .\scripts\configure-local-hosts.ps1
 # http://novashop.local
+# http://api.novashop.local/docs
 ```
 
 Remove everything with `.\scripts\deploy-local-k8s.ps1 -Uninstall`. It deletes one namespace,
