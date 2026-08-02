@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 
-from app.api.middleware import request_id_middleware
+from app.api.middleware import fault_middleware, request_id_middleware
 from app.api.router import api_router
 from app.core import logging as structured_logging
 from app.core.config import settings
@@ -43,6 +43,11 @@ app.include_router(api_router)
 # before the metrics middleware runs, so a log line emitted while recording a
 # request already carries the ID.
 app.middleware("http")(metrics.metrics_middleware)
+# Fault injection sits inside the metrics middleware, so an injected 503 is
+# counted like any other response. A fault the metrics cannot see would
+# demonstrate nothing -- the entire point is to move the error-rate series the
+# ApplicationErrorRate alert reads.
+app.middleware("http")(fault_middleware)
 app.middleware("http")(request_id_middleware)
 metrics.initialise()
 tracing.initialise(app)

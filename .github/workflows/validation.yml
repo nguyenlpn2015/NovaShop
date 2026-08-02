@@ -106,6 +106,12 @@ jobs:
       - name: Run TypeScript checks
         run: npm run typecheck
 
+      # Added when the frontend gained behaviour worth asserting. Until then
+      # this job type-checked and built code that nothing exercised, and the
+      # audit recorded "0 frontend tests" as the largest single gap.
+      - name: Run frontend tests
+        run: npm test
+
       - name: Build frontend
         run: npm run build
         env:

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { useCart } from "@/components/CartProvider";
 import type { ProductSummary } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 
@@ -133,5 +134,32 @@ export function SearchBox() {
         </div>
       )}
     </div>
+  );
+}
+
+
+/** Cart link with a live count. */
+export function CartBadge() {
+  const { cart } = useCart();
+  return (
+    <Link
+      href="/cart"
+      aria-label={`Cart, ${cart.item_count} items`}
+      className="relative rounded-lg p-2 text-content-muted transition
+                 hover:bg-surface-sunken hover:text-content"
+    >
+      <span aria-hidden className="block h-5 w-5 text-center leading-5">
+        🛒
+      </span>
+      {cart.item_count > 0 && (
+        <span
+          className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center
+                     justify-center rounded-full bg-accent px-1 text-[10px]
+                     font-semibold text-accent-contrast"
+        >
+          {cart.item_count}
+        </span>
+      )}
+    </Link>
   );
 }

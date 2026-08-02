@@ -1,0 +1,81 @@
+{{- /*
+Autoscaling readiness, not autoscaling.
+
+This platform has one node. A HorizontalPodAutoscaler here can create replicas
+but has nowhere to spread them, so the capacity it adds is the same CPU it was
+already contending for. What these manifests demonstrate is that the decision,
+the metric, and the manifest are correct -- and that the cluster would scale if
+there were somewhere to scale to.
+
+Off by default for the same reason. Turning it on without a second node adds
+scheduling churn and no capacity. It is enabled per environment when there is a
+point to it.
+*/}}
+{{- range $component := list "backend" "frontend" }}
+{{- $values := index $.Values $component }}
+{{- if $values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "novashop.fullname" $ }}-{{ $component }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "novashop.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "novashop.fullname" $ }}-{{ $component }}
+  minReplicas: {{ $values.autoscaling.minReplicas }}
+  maxReplicas: {{ $values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $values.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      # Five minutes, not the default. A catalogue's traffic is spiky, and the
+      # default 300s window with an immediate policy still lets a brief lull
+      # remove capacity that is needed again a minute later.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+{{- end }}
+{{- end }}
+
+{{- range $component := list "backend" "frontend" }}
+{{- $values := index $.Values $component }}
+{{- if $values.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "novashop.fullname" $ }}-{{ $component }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "novashop.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  # minAvailable, expressed so that a single-replica environment is not made
+  # undrainable. A PDB of minAvailable: 1 against one replica blocks every
+  # voluntary eviction, including `kubectl drain` during a node upgrade -- the
+  # operation the budget is supposed to make safe.
+  minAvailable: {{ $values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "novashop.selectorLabels" (dict "root" $ "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}

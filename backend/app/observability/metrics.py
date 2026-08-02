@@ -90,6 +90,28 @@ CACHE_OPERATIONS = Counter(
 # Buckets run finer than the HTTP histogram because an indexed lookup answering
 # in 40ms and one answering in 4ms are different situations, and the HTTP
 # buckets cannot tell them apart.
+# Orders, by outcome. A business metric rather than a technical one, and the
+# only counter here an alert could reasonably be written against: a sustained
+# run of out_of_stock or a total absence of "placed" both mean something.
+ORDERS_CREATED = Counter(
+    "novashop_orders_created_total",
+    "Checkout attempts, by outcome.",
+    labelnames=("result",),
+    registry=REGISTRY,
+)
+
+# How much is sitting in carts right now. A gauge, not a counter: it goes down.
+#
+# Set from whichever replica last handled a cart read, so with several replicas
+# it reports that replica's last observation rather than a cluster total. That
+# is a real limitation and the reason it is not alerted on -- it is here to make
+# Redis visibly load-bearing on a dashboard.
+CART_ITEMS = Gauge(
+    "novashop_cart_items",
+    "Items in the most recently read cart.",
+    registry=REGISTRY,
+)
+
 DB_QUERY_DURATION = Histogram(
     "novashop_db_query_duration_seconds",
     "Database query duration in seconds, by named query.",
