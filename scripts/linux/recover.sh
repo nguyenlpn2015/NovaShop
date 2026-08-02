@@ -119,8 +119,18 @@ check_platform_environment_file() {
     return
   fi
 
-  if ! grep --quiet '^[[:space:]]*DATABASE_URL=' "${PLATFORM_ENV_FILE}" \
-    || ! grep --quiet '^[[:space:]]*REDIS_URL=' "${PLATFORM_ENV_FILE}"; then
+  # The `export ` prefix is optional and must be tolerated.
+  #
+  # This check grepped '^[[:space:]]*DATABASE_URL=' and the real file declares
+  # `export DATABASE_URL=`, so it matched nothing. Recovery aborted at its first
+  # precondition on a completely healthy platform — meaning the disaster recovery script
+  # could never have run, and nobody knew because it had never been run.
+  #
+  # The same mismatch was found and fixed in configure-datastores.sh earlier. Finding it a
+  # second time in a different script is the argument for exercising recovery rather than
+  # reviewing it.
+  if ! grep --quiet --extended-regexp '^[[:space:]]*(export[[:space:]]+)?DATABASE_URL=' "${PLATFORM_ENV_FILE}" \
+    || ! grep --quiet --extended-regexp '^[[:space:]]*(export[[:space:]]+)?REDIS_URL=' "${PLATFORM_ENV_FILE}"; then
     precondition_failed \
       "platform environment file declares DATABASE_URL and REDIS_URL" \
       "Both variables are required to recreate the runtime Secrets."
