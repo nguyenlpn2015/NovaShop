@@ -8,7 +8,9 @@ config:
   appName: NovaShop API
   appVersion: "0.1.0"
   environment: production
-  nextPublicApiUrl: https://api.novashop.local
+  # In-cluster Service address. The frontend fetches server-side, so this is
+  # never sent to a browser and does not vary by public hostname.
+  backendUrl: http://novashop-backend
 
 # The Secret must be created out-of-band by a secrets manager or CI/CD.
 secrets:
@@ -134,13 +136,18 @@ frontend:
     maxUnavailable: 0
   probes:
     liveness:
-      path: /
+      # /healthz, not /. The home page fetches the catalogue during server
+      # rendering, so probing / makes liveness depend on the backend -- and a
+      # failing liveness probe restarts the container. A backend outage would
+      # then restart every frontend replica, removing the one thing still able
+      # to serve an error page. /healthz answers from the Node process alone.
+      path: /healthz
       initialDelaySeconds: 15
       periodSeconds: 10
       timeoutSeconds: 3
       failureThreshold: 3
     readiness:
-      path: /
+      path: /healthz
       initialDelaySeconds: 5
       periodSeconds: 5
       timeoutSeconds: 3
