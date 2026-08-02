@@ -11,6 +11,7 @@
 | Fix something that is broken | [Troubleshooting](operations/troubleshooting.md) |
 | Respond to an alert | [Runbooks](observability/runbooks/) |
 | Judge the engineering | [Repository Audit](AUDIT.md) |
+| Judge the Terraform | [Terraform Audit](TERRAFORM_AUDIT.md) |
 
 ## Architecture
 
@@ -25,6 +26,7 @@ Twelve views, each answering a question the others cannot. Reading order in
 | [Bootstrap Flow](architecture/bootstrap-flow.md) | [Recovery Flow](architecture/recovery-flow.md) |
 | [Observability Flow](architecture/observability-flow.md) | [Networking](architecture/networking.md) |
 | [DNS](architecture/dns.md) | [TLS Flow](architecture/tls-flow.md) |
+| [Terraform Flow](architecture/terraform-flow.md) | |
 
 Supplementary diagrams predating this set are in [../diagrams/](../diagrams/).
 
@@ -39,7 +41,9 @@ Index in [operations/README.md](operations/README.md).
 | [Observability](operations/observability-guide.md) | Reading metrics, logs, and alerts |
 | [Troubleshooting](operations/troubleshooting.md) | Something is wrong, cause unknown |
 | [Platform Upgrade](operations/platform-upgrade.md) | Moving k3s, Argo CD, or a chart |
+| [Backup and Restore](operations/backup-and-restore.md) | Protecting data, and proving the backup works |
 | [Disaster Recovery](recovery/disaster-recovery.md) | The node is gone |
+| [DR exercise, 2026-08-02](recovery/dr-exercise-2026-08-02.md) | What was and was not proven |
 
 ### Task reference
 

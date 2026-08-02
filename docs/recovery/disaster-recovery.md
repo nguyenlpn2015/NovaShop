@@ -101,6 +101,54 @@ Step 7 must precede step 8. cert-manager adopts an existing valid Secret and
 schedules a normal renewal; if it reconciles first, it requests a new certificate
 and the backup becomes pointless.
 
+## Recovering through Terraform
+
+`recover.sh` remains the shortest path and is what a rehearsal should exercise. Since
+Sprint 6 the same sequence is also expressible as Terraform layers, which is the route to
+take when the node is being rebuilt from nothing rather than restored in place — the layers
+carry the declarative inputs, so nothing depends on remembering flags.
+
+```sh
+cd terraform/layers/0-node      && terraform apply
+cd ../1-datastores              && terraform apply
+cd ../2-k3s                     && terraform apply
+# restore certificate material here — before 6-gitops, for the reason above
+cd ../5-cluster                 && terraform apply
+cd ../6-gitops                  && terraform apply -var run_bootstrap=true
+```
+
+Then stop. Argo CD reconciles the remaining twelve Applications from Git on its own.
+Terraform's last act is creating the root Application; see
+[ADR 014](../../adr/014-terraform-gitops-handover.md).
+
+Two orderings are not negotiable, and both are the same principle — restore state before the
+thing that would otherwise recreate it:
+
+**PostgreSQL is restored before Terraform runs at all.** The `pg` state backend lives in it.
+A rebuild that starts Terraform first has nowhere to write state and, worse, may plan against
+an empty state as though nothing exists. Where PostgreSQL is not yet available, the layers
+run on local state via `backend-local-override.tf.example` and migrate afterwards.
+
+**Certificate material is restored before `6-gitops`**, for the reason in step 7 above.
+
+`terraform apply` in `6-gitops` needs `run_bootstrap=true`. The default is false so that a
+routine apply on a healthy cluster does not silently re-run an installer that waits on
+rollouts.
+
+### Verifying the handover afterwards
+
+```sh
+cd terraform/layers/6-gitops
+terraform output -json handover
+terraform output -json verification_commands | jq -r '.[]'
+```
+
+Seven assertions run at plan time and report if the root Application has drifted — wrong
+repository, pinned revision, `selfHeal` disabled, a registered repository the AppProject does
+not permit, or a running Argo CD version that does not match the pinned digest. All five are
+states in which `kubectl get applications` still reads `Synced/Healthy`, which is exactly why
+they are worth asserting rather than eyeballing.
+
 ## After recovery
 
 ```bash

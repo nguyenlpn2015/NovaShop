@@ -21,6 +21,9 @@ An alternative with no stated drawback was not considered — it was listed.
 | [009](009-observability-stack.md) | Prometheus, Grafana, Loki, and Alertmanager | Accepted |
 | [010](010-secret-management.md) | Secrets created outside Git, by documented procedure | Accepted |
 | [011](011-distributed-tracing.md) | OpenTelemetry instrumented, tracing backend not deployed | Accepted |
+| [012](012-terraform-scope.md) | Terraform codifies the platform outside the cluster | Accepted |
+| [013](013-terraform-kubernetes-boundary.md) | Terraform's Kubernetes layer asserts more than it owns | Accepted, refines 012 |
+| [014](014-terraform-gitops-handover.md) | Terraform owns the GitOps seed, and stops there | Accepted |
 
 ## The decisions that most shaped the platform
 

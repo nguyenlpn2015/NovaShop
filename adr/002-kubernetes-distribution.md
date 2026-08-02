@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-The platform runs on one Ubuntu 24.04 server on a home lab network, with a single
+The platform runs on one Ubuntu 22.04 server on a home lab network, with a single
 operator. It has to be a real Kubernetes cluster — the point of the project is to
 demonstrate platform engineering, and a container runtime with a reverse proxy would
 not do that — but it also has to be operable and recoverable by one person without a
