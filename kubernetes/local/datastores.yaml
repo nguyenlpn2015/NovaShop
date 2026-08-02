@@ -58,6 +58,12 @@ spec:
           image: postgres:14-alpine
           securityContext:
             allowPrivilegeEscalation: false
+            # PostgreSQL writes to exactly three places: its data directory,
+            # which is the mounted volume, and two socket directories. Given
+            # emptyDir mounts for those, the root filesystem can be read-only --
+            # which is what the application containers do and what Trivy's
+            # KSV-0014 asks for. It flagged this file and it was right.
+            readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
           env:
@@ -89,10 +95,20 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: postgres-data
+        # The Unix socket and lock files. Small and ephemeral -- emptyDir is
+        # correct; a PVC for a socket directory would be absurd.
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
