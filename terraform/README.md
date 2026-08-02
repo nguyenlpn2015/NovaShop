@@ -12,11 +12,17 @@ Decision and rationale: [ADR 012](../adr/012-terraform-scope.md),
 Review, findings, and maturity score: [Terraform audit](../docs/TERRAFORM_AUDIT.md).
 Architecture view: [Terraform Flow](../docs/architecture/terraform-flow.md).
 
-> **Phase 1 status.** This directory currently contains **foundation only** — providers,
-> version pins, backend abstraction, variables, locals, outputs, and validation. **No
-> resources are declared and nothing is managed yet.** `terraform plan` in any layer
-> produces an empty plan. Resources arrive per layer in later phases, each one importing
-> existing infrastructure rather than creating it.
+> **Status.** Two of seven layers declare resources: **`5-cluster`** and **`6-gitops`**. The
+> other five — `0-node`, `1-datastores`, `2-k3s`, `3-github`, `4-dns` — are foundation only:
+> providers, version pins, backend abstraction, variables, locals, outputs, and validation.
+> `terraform plan` in those five produces an empty plan.
+>
+> That is a real limitation, not a phrasing. The node, the datastores, k3s, the GitHub
+> repositories and the DNS records are **configured by scripts and by hand**; those five
+> layers describe the interface Terraform would use, and manage nothing today. Anything they
+> would manage already exists, so the path is `terraform import`, never `apply` — which is
+> why [`5-cluster/imports.tf`](layers/5-cluster/imports.tf) exists and why that layer asserts
+> eleven properties while owning two resources.
 
 ## The ownership boundary
 

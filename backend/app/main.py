@@ -39,5 +39,15 @@ tracing.initialise(app)
 
 @app.get(settings.metrics_path, include_in_schema=False)
 async def metrics_endpoint() -> Response:
-    """Prometheus exposition. Not routed publicly by any Ingress rule."""
+    """Prometheus exposition.
+
+    Prometheus does not reach this through the Ingress: endpoints-role discovery
+    scrapes the pod address on the container port directly.
+
+    It is nonetheless publicly reachable, because the backend Ingress routes the
+    `/` prefix on the backend host and every path the application serves is
+    therefore exposed. That discloses the build version, the route inventory,
+    and request volumes. It is a recorded gap with a written remedy, not an
+    oversight -- see docs/security/hardening.md.
+    """
     return metrics.render_metrics()

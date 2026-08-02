@@ -1,0 +1,79 @@
+name: Platform change proposal
+description: Add, replace, or remove a component, a guardrail, or a design decision.
+labels: ["proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This platform runs on **one node** and deliberately omits a service
+        mesh, policy engine, external secret manager, and distributed tracing.
+        Each omission has a recorded reason in
+        [`adr/`](https://github.com/nguyenlpn2015/NovaShop/tree/main/adr) —
+        please read the relevant one before proposing the thing it rejected.
+
+        Proposals that argue *against* something already here are welcome.
+        [ADR 000](https://github.com/nguyenlpn2015/NovaShop/blob/main/adr/000-template.md)
+        is the format.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What is wrong today, stated without reference to the solution you have
+        in mind. If nothing is currently wrong, say that — "this would be
+        better" is a legitimate but different case.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered, and why they lose
+      description: >-
+        Required. Every ADR in this repository names what it rejected; a
+        proposal with no rejected alternative has not been thought through
+        yet.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: What this costs
+      description: >-
+        Operational burden, memory on a node already at roughly 150 percent
+        committed limits, another moving part in recovery, a new failure mode.
+        A proposal with no cost is a proposal that has not been costed.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: adr
+    attributes:
+      label: Does this need an ADR?
+      options:
+        - "Yes — it changes a decision or adds a component"
+        - "No — it is an implementation detail within an existing decision"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have read the ADR covering this area, or confirmed none exists.
+          required: true
+        - label: >-
+            I have checked "What is deliberately absent" in the README and
+            "Deliberately out of scope" in the roadmap.
+          required: true

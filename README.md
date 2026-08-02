@@ -1,5 +1,11 @@
 # NovaShop
 
+[![CI](https://github.com/nguyenlpn2015/NovaShop/actions/workflows/ci.yml/badge.svg)](https://github.com/nguyenlpn2015/NovaShop/actions/workflows/ci.yml)
+[![Release](https://github.com/nguyenlpn2015/NovaShop/actions/workflows/release.yml/badge.svg)](https://github.com/nguyenlpn2015/NovaShop/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/nguyenlpn2015/NovaShop?label=release&color=blue)](https://github.com/nguyenlpn2015/NovaShop/releases/latest)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Topology: single node](https://img.shields.io/badge/topology-single%20node%2C%20no%20HA-orange)](docs/AUDIT.md)
+
 A production-style platform engineering project: GitOps delivery, guardrails that block
 unsafe releases, observability with runbook-backed alerting, Infrastructure as Code, and
 disaster recovery — running on a single Ubuntu node.
@@ -9,7 +15,10 @@ The application is deliberately small. **The platform around it is the subject.*
 **v1.0.0** · Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
 [staging](https://staging.novashop.smartdev.vn) ·
 [dev](https://dev.novashop.smartdev.vn) ·
-[CHANGELOG](CHANGELOG.md)
+[CHANGELOG](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)
+
+The last badge is deliberate. This runs on one node with no high availability, and that
+bounds everything below it.
 
 ## Current state
 
@@ -31,12 +40,37 @@ Measured on the running platform, not aspirational.
 | If you have… | Read |
 |---|---|
 | **5 minutes** | This page, then [Architecture Overview](docs/architecture/overview.md) |
+| **One hour, everything** | [The Complete Guide](docs/THE_COMPLETE_GUIDE.md) — the whole platform in one file |
 | **15 minutes** | Add [Repository Audit](docs/AUDIT.md) — the honest scoring |
 | **You are interviewing me** | [Interview Guide](docs/INTERVIEW_GUIDE.md) — a walkthrough and the questions I expect |
 | **You are preparing to be interviewed** | [docs/interview/](docs/interview/) — teaching guide, 107 questions, cheat sheets |
 | **You want to learn this stack** | [NovaShop Academy](docs/academy/) — 19 modules taught from these files; 4 written so far |
 | **You want to run it** | [Local Development](docs/operations/local-development.md) |
 | **You want to judge the engineering** | [Engineering Log](docs/LEARNING_LOG.md) — the defects found, and how |
+
+## Quick start
+
+Three paths, shortest first. None of them needs access to the live platform.
+
+**Run the application** — about two minutes.
+
+```sh
+git clone https://github.com/nguyenlpn2015/NovaShop.git && cd NovaShop
+cp .env.example .env
+docker compose up --build
+```
+
+Frontend on [localhost:3000](http://localhost:3000), API docs on
+[localhost:8000/docs](http://localhost:8000/docs). This is Compose, not Kubernetes — no Argo
+CD, no TLS, no observability, and that is
+[a decision rather than a gap](docs/operations/local-development.md#what-local-development-is-not).
+
+**Check the platform is what this page claims** — about five minutes, no cluster, no
+credentials. See [Verify any claim](#verify-any-claim-on-this-page) below.
+
+**Deploy it on a node of your own** — a few hours, one Ubuntu 22.04 host.
+[Production Deployment](docs/operations/production-deployment.md) is the full sequence;
+[Bootstrap Flow](docs/architecture/bootstrap-flow.md) is the same thing as a diagram.
 
 ## What this demonstrates
 
@@ -82,6 +116,24 @@ flowchart LR
 ```
 
 Thirteen views with the reasoning behind each: **[docs/architecture/](docs/architecture/)**
+
+## Seeing it run
+
+The platform is live, so the fastest evidence is the platform itself rather than a picture of
+it:
+
+| | |
+|---|---|
+| Production | [novashop.smartdev.vn](https://novashop.smartdev.vn) — HSTS, Let's Encrypt |
+| Staging · Development | [staging](https://staging.novashop.smartdev.vn) · [dev](https://dev.novashop.smartdev.vn) — same chart, different values |
+| Backend, on its own host | [api.novashop.smartdev.vn/health](https://api.novashop.smartdev.vn/health) · [/live](https://api.novashop.smartdev.vn/live) · [/ready](https://api.novashop.smartdev.vn/ready) |
+
+`/live` returns healthy while `/ready` reports its dependencies, which is why there are three
+endpoints rather than one — [ADR-backed reasoning](docs/architecture/overview.md).
+
+Argo CD and Grafana are not exposed publicly — they hold cluster state and there is no SSO in
+front of them. [Screenshots](docs/screenshots/) is where captures of those consoles belong,
+and it currently holds the capture procedure rather than the images.
 
 ## Stack
 
@@ -130,11 +182,12 @@ adr/                    15 decision records
 backend/                FastAPI + hand-written Prometheus instrumentation
 frontend/               Next.js
 helm/novashop/          The application chart
-kubernetes/             Platform component values, ingress baselines, cert-manager
+kubernetes/             Platform component values, ingress phases, cert-manager
 terraform/              7 layers, non-cloud IaC
 argocd/                 Bootstrap manifests and the pinned Argo CD digest
 scripts/                Bootstrap, validation gates, backup, restore, recovery
-docs/                   88 documents — architecture, operations, runbooks, audits, academy
+runbooks/               An index; the runbooks live beside the alerts they serve
+docs/                   92 documents — architecture, operations, runbooks, audits, academy
 diagrams/               Subsystem diagrams predating docs/architecture/
 .github/                CI, release, validation workflow, rulesets as JSON
 ```
@@ -168,8 +221,20 @@ All three run without a cluster and without credentials.
 - [Runbooks](docs/observability/runbooks/) — one per alert, 14 of them
 - [ADRs](adr/) — why each technology, and what lost
 - [Audit](docs/AUDIT.md) · [Terraform audit](docs/TERRAFORM_AUDIT.md)
+- [Roadmap](docs/ROADMAP.md) — delivered, next, and deliberately out of scope
+- [Release checklist](docs/RELEASE_CHECKLIST.md) — what is verified before a tag
 
-## Licence and contributing
+## Contributing
 
-[MIT](LICENSE) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) ·
-[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+Pull requests are welcome, including ones that argue against a decision recorded here.
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — workflow, required checks, and where to start
+- The three gates run in minutes with no cluster and no credentials; they are the fastest way
+  to learn what this platform considers correct
+- The most useful contributions right now: a document that is wrong, frontend tests (there
+  are none), or one of the fifteen unwritten [Academy](docs/academy/) modules
+- Report a vulnerability privately through
+  [Security advisories](https://github.com/nguyenlpn2015/NovaShop/security/advisories/new),
+  never a public issue — [SECURITY.md](SECURITY.md)
+
+[MIT](LICENSE) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
