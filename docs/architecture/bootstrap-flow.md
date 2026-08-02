@@ -3,6 +3,28 @@
 How an empty Ubuntu machine becomes this platform, and why every step can be run
 twice.
 
+## Terraform prepares, GitOps reconciles
+
+Since Sprint 6 the sequence below is driven by Terraform layers rather than invoked by hand.
+The scripts are unchanged — they remain the executors — but the inputs are declarative and
+the result is asserted. See [ADR 014](../../adr/014-terraform-gitops-handover.md).
+
+```mermaid
+flowchart LR
+    L0["<b>0-node</b><br/>packages, sysctl, UFW"] --> L1["<b>1-datastores</b><br/>roles, grants, Redis"]
+    L1 --> L2["<b>2-k3s</b><br/>version, server args"]
+    L2 --> L5["<b>5-cluster</b><br/>namespace, RBAC,<br/>prerequisites"]
+    L5 --> L6["<b>6-gitops</b><br/>Argo CD, AppProject,<br/><b>root Application</b>"]
+    L6 ==>|"handover"| ARGO["<b>Argo CD</b><br/><i>reconciles everything<br/>from here on</i>"]
+    L3["<b>3-github</b>"] -.-> L6
+    L4["<b>4-dns</b>"] -.->|"HTTP-01 depends on it"| ARGO
+```
+
+Terraform stops at the root Application. The twelve Applications, every Helm release, and
+every workload descend from that one object and are reconciled from Git.
+
+## The sequence in detail
+
 ```mermaid
 flowchart TB
     START(["Fresh Ubuntu 22.04 node"]) --> ENV["<b>load_platform_environment</b><br/>/root/.novashop-platform.env<br/><i>root, 0600, never in Git</i>"]
