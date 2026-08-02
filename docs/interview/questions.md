@@ -824,7 +824,7 @@ one. Then run the three gates — they will fail if something has drifted.
 **Warn them:** `selfHeal` reverts live edits, `ServerSideApply` changes what "diff" means, and
 five Terraform layers manage nothing despite looking complete.
 
-### P6. Is 93 pre-merge checks the right number?
+### P6. Is 94 pre-merge checks the right number?
 
 **Answer.** The count is not the metric. What matters is that each was negative-tested and each
 maps to a failure class that occurred. A gate nobody has broken deliberately is a gate that has

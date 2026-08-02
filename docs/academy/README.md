@@ -69,7 +69,7 @@ tracing have genuinely different lessons here.
 | # | Module | Teaches from |
 |---|---|---|
 | 10 ✅ | [GitOps and Argo CD](modules/10-gitops-and-argocd.md) | Two repositories, SHA pinning, sync waves, `ServerSideApply` diffs, `selfHeal` traps |
-| 11 | Guardrails and Validation | The three gates, 93 checks, negative testing |
+| 11 | Guardrails and Validation | The three gates, 94 checks, negative testing |
 
 ### Part 5 — Observability
 

@@ -188,7 +188,8 @@ and why it happens in bootstrap before anything else is installed.
 
 ## 4. The application
 
-Deliberately small. Its job is to be *observable* and *deployable*, not featureful.
+Deliberately modest. Its job is to be *observable* and *deployable* rather than
+featureful -- nine pages, one write path, and no authentication.
 
 ### Backend — FastAPI (Python)
 
@@ -625,7 +626,7 @@ Stated rather than disguised.
 
 ## 13. The guardrails
 
-93 automated checks across three scripts. All run **without a cluster and without
+94 automated checks across three scripts. All run **without a cluster and without
 credentials** — you can run them right now on a clean clone.
 
 ```sh
