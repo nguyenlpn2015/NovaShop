@@ -1,21 +1,89 @@
 # Local Development Guide
 
-Running NovaShop on your own machine. This path is for changing the application; it is
-deliberately not a miniature of production.
+Running NovaShop on your own machine. Three paths, and the right one depends on what you are
+trying to do.
+
+| You want to | Use | Time |
+|---|---|---|
+| Change the application | [Docker Compose](#running-the-application) | 2 minutes |
+| See it running on Kubernetes | [Docker Desktop Kubernetes](#running-on-kubernetes-docker-desktop) | 5 minutes |
+| Check the platform is correct | [The three gates](#running-the-platform-gates-locally) | 5 minutes, no cluster |
 
 ## What local development is not
 
-It does not run Argo CD, cert-manager, TLS, or the observability stack. It runs on HTTP with
-no certificates and no GitOps reconciliation.
+None of these paths runs Argo CD, cert-manager, TLS, or the observability stack. They run on
+HTTP with no certificates and no GitOps reconciliation.
 
-That is a decision, not a gap. Reproducing the platform locally would mean a second set of
-manifests to keep in step with the real ones, and the copy would drift silently because each
-version is individually valid. Instead, the platform is validated by the same gates CI runs —
-which you can run locally against the real configuration — and the application is developed
-against Docker Compose.
+That is a decision, not a gap. **GitOps is the thing the real platform demonstrates, and
+simulating it locally would teach the shape without the substance** — a second set of
+manifests to keep in step with the real ones, drifting silently because each version is
+individually valid.
 
-If you need to exercise Kubernetes behaviour, run the gates. If you need to exercise the
-application, use Compose.
+The platform is validated instead by the same gates CI runs, against the real configuration.
+
+## Running on Kubernetes (Docker Desktop)
+
+The closest local equivalent of the node. Same Helm chart, same images pulled from GHCR by
+commit SHA, same Traefik ingress, same local-path storage, same Alembic migration Job.
+
+**Prerequisites:** Docker Desktop with Kubernetes enabled (Settings → Kubernetes → Enable).
+Helm is not required — the script renders the chart through a container, because requiring a
+Helm install would put a tool between you and a first working deployment.
+
+```powershell
+cd D:\Projects\NovaShop
+.\scripts\deploy-local-k8s.ps1
+```
+
+It refuses to run if `kubectl config current-context` is not `docker-desktop`. Applying a
+development manifest to whichever cluster happens to be selected is how people deploy to the
+wrong place, and the wrong place is sometimes production.
+
+Expect:
+
+```
+==> Preflight
+    Context: docker-desktop
+==> Checking the images exist in GHCR
+    backend image present
+    frontend image present
+==> Namespace novashop-local
+    Created, with pod-security enforce=restricted
+==> Migration and seed
+    Schema applied and demo data seeded
+==> Verifying
+    Backend readiness 200, both dependencies healthy
+    Products seeded: 128
+```
+
+Then reach it either way:
+
+```powershell
+# Port-forward. Works whether or not an ingress controller is installed.
+kubectl port-forward -n novashop-local svc/novashop-frontend 3000:80
+# http://localhost:3000
+
+# Or through Traefik, once novashop.local resolves to 127.0.0.1:
+.\scripts\configure-local-hosts.ps1
+# http://novashop.local
+```
+
+Remove everything with `.\scripts\deploy-local-k8s.ps1 -Uninstall`. It deletes one namespace,
+because everything the script creates lives in one namespace.
+
+### Where this differs from the node, and why
+
+| Local | Node | Reason |
+|---|---|---|
+| PostgreSQL and Redis in the cluster | On the host | On one node a database in a pod adds failure modes — the pod, the PVC, the scheduler — without the rescheduling benefits that justify them at scale. Locally, self-contained and disposable matters more |
+| No Argo CD | Argo CD reconciles everything | The script applies once and stops. Nothing self-heals; if you `kubectl delete` something it stays deleted |
+| No TLS | Let's Encrypt, HSTS | Let's Encrypt cannot issue a certificate for `localhost` |
+| NetworkPolicy disabled | Default-deny ingress | The rules admit `10.10.1.0/24` for kubelet probes. Docker Desktop's node network is different, so enabling them would take every replica NotReady for a reason unrelated to the policies being wrong |
+| One replica each | 1 / 1 / 2 | Two proves nothing locally and doubles what a laptop spends on a demonstration |
+| PostgreSQL 14 | PostgreSQL 14 | Matches deliberately. Compose uses 17.9, which is a real inconsistency — see [below](#where-local-differs-from-the-node) |
+
+**Pod Security Admission is set to `restricted` on the local namespace on purpose.** A chart
+change that violates it then fails on your machine rather than at sync time on the node.
 
 ## Prerequisites
 
