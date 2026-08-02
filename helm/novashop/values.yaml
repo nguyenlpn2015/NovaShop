@@ -14,6 +14,35 @@ config:
 secrets:
   existingSecret: novashop-secrets
 
+# Schema migration and demo data, run as an Argo CD PreSync hook.
+#
+# Not at application startup. Startup migration with more than one replica means
+# concurrent writers racing for the same DDL, and a failure part-way leaves some
+# replicas migrated and some not, with no single place to read what happened. A
+# PreSync Job runs exactly once and blocks the sync when it fails.
+migrations:
+  enabled: true
+
+  # Seeding is idempotent -- rows are matched on their natural key and inserted
+  # only if absent -- so running it on every sync is a no-op after the first.
+  # It is on in every environment on purpose: this application exists to be
+  # demonstrated, and an empty catalogue demonstrates nothing.
+  seed: true
+
+  # One retry. A migration that fails twice is failing for a reason retrying
+  # will not fix, and each attempt delays the sync.
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 384Mi
+
 # Ingress default-deny per namespace, with explicit exceptions.
 #
 # Enforcement was proven on this cluster before the templates were written: k3s runs

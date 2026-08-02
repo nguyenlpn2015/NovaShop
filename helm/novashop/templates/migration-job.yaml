@@ -1,0 +1,70 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "novashop.fullname" . }}-migrate
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "novashop.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    # PreSync, not a Helm hook. Argo CD understands both, but Helm hooks are
+    # translated into Argo CD hooks with subtly different deletion semantics, and
+    # the resource is then owned by neither cleanly.
+    #
+    # PreSync means the Job runs and must succeed before anything else in the
+    # sync is applied. A failed migration therefore blocks the rollout instead of
+    # letting new replicas start against a schema they do not match.
+    argocd.argoproj.io/hook: PreSync
+    # BeforeHookCreation, not HookSucceeded. The Job is deleted when the next one
+    # is created, so the last run -- including a failed one -- stays available
+    # for `kubectl logs`. HookSucceeded deletes the evidence at exactly the
+    # moment you need it.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  # Without a deadline a Job that cannot reach PostgreSQL retries until the
+  # backoff limit with exponential delay, and the sync appears to hang rather
+  # than fail. Failing at a known time is more useful than failing eventually.
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "novashop.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ required "secrets.existingSecret is required" .Values.secrets.existingSecret }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.config.environment | quote }}
+          command:
+            - /bin/sh
+            - -c
+            # Sequential and fail-fast. Seeding a schema that did not migrate
+            # would insert against tables that may not exist, and the error
+            # would name a missing relation rather than the failed upgrade.
+            - |
+              set -e
+              echo "running migrations"
+              alembic upgrade head
+              {{- if .Values.migrations.seed }}
+              echo "seeding demo data (idempotent)"
+              python -m app.db.seed
+              {{- else }}
+              echo "seeding disabled for this environment"
+              {{- end }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end }}

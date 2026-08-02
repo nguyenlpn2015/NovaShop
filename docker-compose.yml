@@ -29,6 +29,26 @@ services:
     networks:
       - novashop
 
+  # Local equivalent of the Argo CD PreSync hook. Same image, same command, so a
+  # migration that works here is the one that runs in the cluster. Compose has no
+  # hooks, so ordering is expressed as a completion dependency instead.
+  migrate:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novashop}:${POSTGRES_PASSWORD:-novashop}@postgres:5432/${POSTGRES_DB:-novashop}
+      REDIS_URL: redis://redis:6379/0
+    command: >-
+      sh -c "set -e;
+      alembic upgrade head;
+      python -m app.db.seed"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - novashop
+
   backend:
     build:
       context: ./backend
@@ -45,6 +65,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [

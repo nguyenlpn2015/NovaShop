@@ -87,9 +87,7 @@ class Datastores:
         return DependencyStatus("redis", True)
 
     async def check_all(self) -> list[DependencyStatus]:
-        return list(
-            await asyncio.gather(self.check_postgres(), self.check_redis())
-        )
+        return list(await asyncio.gather(self.check_postgres(), self.check_redis()))
 
 
 def _describe(error: BaseException) -> str:
