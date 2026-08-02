@@ -48,14 +48,22 @@ ingress:
   enabled: true
   className: traefik
   annotations: {}
-  # Distinct from dev.novashop.local, which the novashop-development namespace
-  # from the earlier Docker Desktop work already claims. Two Ingresses for one
-  # host is not an error -- Traefik simply picks one, and the loser returns 404
-  # from a namespace that looks perfectly healthy. Reusing that hostname to save
-  # an entry in the hosts file cost an afternoon of 404s.
+  # *.localhost, which resolves to 127.0.0.1 with no hosts file and no
+  # administrator. Windows, macOS and Linux resolvers all do this; RFC 6761
+  # reserves the name for exactly this purpose.
   #
-  # Added by scripts/configure-local-hosts.ps1.
-  frontendHost: novashop.local
-  backendHost: api.novashop.local
+  # Two earlier attempts were worse. dev.novashop.local collided with the
+  # novashop-development namespace left by the earlier Docker Desktop work --
+  # and two Ingresses claiming one host is not an error, so Traefik picked one
+  # and the other returned 404 from a namespace that looked entirely healthy.
+  # novashop.local avoided the collision but needed an elevated PowerShell to
+  # edit the hosts file, which is a poor first step for someone who just wants
+  # to see the application run.
+  #
+  # A wildcard DNS service such as nip.io would also have worked and was
+  # rejected: it puts an internet dependency in the middle of a local
+  # deployment, and this repository does not have those anywhere else.
+  frontendHost: novashop.localhost
+  backendHost: api.novashop.localhost
   tls:
     enabled: false
