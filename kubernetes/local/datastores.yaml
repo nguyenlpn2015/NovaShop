@@ -70,7 +70,14 @@ spec:
             - name: POSTGRES_USER
               value: novashop
             - name: POSTGRES_PASSWORD
-              value: localdev
+              # From the same Secret the application reads, so there is one
+              # source for the credential rather than two that can disagree.
+              # scripts/deploy-local-k8s.ps1 generates it; nothing here is
+              # hardcoded, even though this cluster is disposable.
+              valueFrom:
+                secretKeyRef:
+                  name: novashop-local-secrets
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
               value: novashop
             - name: PGDATA
