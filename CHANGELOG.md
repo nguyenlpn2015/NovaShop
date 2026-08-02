@@ -8,6 +8,34 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- **NovaShop Academy** — `docs/academy/`. Nineteen modules that teach the platform from its
+  own files; four written, fifteen specified with the files each teaches from.
+- **Interview curriculum** — `docs/interview/`. 107 questions with answers, a repository
+  guide, and cheat sheets.
+- **Issue and pull request templates** — `.github/ISSUE_TEMPLATE/` and
+  `.github/pull_request_template.md`. `CONTRIBUTING.md` had told contributors to use a
+  template that did not exist.
+- **Release checklist** — `docs/RELEASE_CHECKLIST.md`. Every item marked ⚠ records a step
+  that went wrong on a previous release.
+- **Screenshot capture procedure** — `docs/screenshots/`. Holds the procedure, not images.
+- README badges, a quick start, and a "Seeing it run" section with the live endpoints.
+
+### Changed
+
+- `docs/PORTFOLIO_EVIDENCE.md` rewritten. It described Docker Desktop, `dev.novashop.local`,
+  and `localhost:8080` — accurate in Sprint 3, wrong since the platform moved to a real node.
+- `CONTRIBUTING.md` — corrected the documentation paths (`architecture/` and `runbooks/` were
+  named as root directories and are not), and added where to start.
+
+### Fixed
+
+- **Private vulnerability reporting was disabled** while `SECURITY.md` instructed reporters to
+  use it. Enabled, along with Dependabot security updates and vulnerability alerts.
+- README linked backend health endpoints under `/api/` on the frontend host. The backend is on
+  its own host, `api.novashop.smartdev.vn`.
+
 ## [1.0.0] - 2026-08-02
 
 First release. A single-node platform engineering portfolio: GitOps delivery,

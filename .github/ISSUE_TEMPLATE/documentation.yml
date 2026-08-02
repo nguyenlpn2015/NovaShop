@@ -1,0 +1,55 @@
+name: Documentation problem
+description: A document is wrong, out of date, unclear, or contradicts the code.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Documentation is treated as an engineering artefact here, and a
+        document that claims more than the platform delivers is a defect.**
+
+        Two documents in this repository once stated that a backup captured
+        the k3s datastore. It did not. Someone reading them would have stopped
+        looking. That is the class of report this template exists for — it is
+        not a lesser kind of issue.
+
+  - type: input
+    id: file
+    attributes:
+      label: Which file
+      description: Path, and line number if you have one.
+      placeholder: docs/operations/backup-and-restore.md:112
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem
+      options:
+        - "Claims something the platform does not do"
+        - "Contradicts another document"
+        - "Contradicts the code or configuration"
+        - "Out of date — was true once"
+        - "Broken link or wrong path"
+        - "Unclear or missing a step"
+    validations:
+      required: true
+
+  - type: textarea
+    id: says
+    attributes:
+      label: What the document says
+      description: Quote it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What is actually true, and how you know
+      description: >-
+        A command whose output shows the difference is the strongest form of
+        this. Reading the source is the next strongest.
+    validations:
+      required: true

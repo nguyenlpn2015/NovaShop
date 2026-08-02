@@ -7,6 +7,32 @@ readiness are welcome.
 By participating, you agree to follow the
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Where to Start
+
+**If you have never touched this repository**, read
+[Architecture Overview](docs/architecture/overview.md), then run the three
+gates in [Validate Before Opening](#validate-before-opening). They run in a few
+minutes with no cluster and no credentials, and they are the fastest way to
+learn what this platform considers correct.
+
+**Contributions that are always welcome**, in rough order of how useful they
+are here:
+
+| | |
+| --- | --- |
+| A document that is wrong | The highest-value report this project takes — see the [documentation template](https://github.com/nguyenlpn2015/NovaShop/issues/new?template=documentation.yml) |
+| Frontend tests | There are **none**. This is the largest single gap, and it is stated in [AUDIT.md](docs/AUDIT.md) |
+| An Academy module | Fifteen of nineteen are specified but unwritten — [`docs/academy/`](docs/academy/) has the template and the files each teaches from |
+| A gate that catches a real defect | Not a hypothetical one. [ADR 001](adr/001-platform-guardrails.md) explains the distinction |
+| A reproduction of something that fails silently | Anything that renders, validates, deploys, and does nothing |
+
+**Two repositories.** Application code, the Helm chart, platform values, and
+scripts are here. Argo CD Applications and per-environment values are in
+[NovaShop-GitOps](https://github.com/nguyenlpn2015/NovaShop-GitOps). A change
+to what is deployed usually needs a pull request in both, and the one here
+must merge first — the GitOps repository pins this one by commit SHA and a
+gate verifies that SHA is reachable from `main`.
+
 ## Before You Contribute
 
 - Search existing issues and pull requests before starting new work.
@@ -117,9 +143,27 @@ commits to protected branches are not part of the normal contribution process.
 ## Documentation
 
 Documentation is part of the deliverable. Keep references, diagrams, runbooks,
-and examples synchronized with behavior. Store architectural decisions in
-`adr/`, architecture material in `architecture/`, operational procedures in
-`runbooks/`, and general project documentation in `docs/`.
+and examples synchronized with behavior.
+
+| Material | Goes in |
+| --- | --- |
+| Architectural decisions | [`adr/`](adr/) — use [ADR 000](adr/000-template.md) |
+| Architecture views | [`docs/architecture/`](docs/architecture/) — Mermaid, so they diff |
+| Alert response procedures | [`docs/observability/runbooks/`](docs/observability/runbooks/) |
+| Operational guides | [`docs/operations/`](docs/operations/) |
+| Teaching material | [`docs/academy/`](docs/academy/) — one module per subsystem |
+| Everything else | [`docs/`](docs/), indexed by [`docs/README.md`](docs/README.md) |
+
+Runbooks live under `docs/observability/` rather than in the root `runbooks/`
+directory because each one is the target of a `runbook_url` in an alert rule,
+and `validate-observability.sh` fails a pull request when any of those links
+points at a file that does not exist. The root
+[`runbooks/`](runbooks/README.md) is an index, not a second home.
+
+**A document that claims more than the platform delivers is a defect, not a
+rough edge.** Two documents here once stated that a backup captured the k3s
+datastore; it did not, and a reader would have stopped looking. Report those
+with the [documentation issue template](https://github.com/nguyenlpn2015/NovaShop/issues/new?template=documentation.yml).
 
 ## Licensing
 

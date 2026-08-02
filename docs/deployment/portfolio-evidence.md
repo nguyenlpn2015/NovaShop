@@ -1,8 +1,17 @@
 # Deployment Target B Portfolio Evidence
 
+Evidence for **building a node from scratch**. If you are presenting the platform rather than
+its installation, use [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md); for console captures,
+[screenshots/](../screenshots/).
+
 Capture a coherent deployment sequence. Show timestamps and resource names,
 but redact passwords, tokens, kubeconfigs, Secret data, private repository
 credentials, SSH private keys, and internal database endpoints.
+
+> The hostname below is what `scripts/linux/bootstrap.sh` sets on a fresh build. The live node
+> predates that script and kept its existing name, `sd-tempo-mcp` — see
+> [Deployment](../architecture/deployment.md). Capture whichever your node actually reports;
+> do not change a running node's hostname to match a document.
 
 ## Infrastructure
 

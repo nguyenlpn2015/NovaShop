@@ -106,12 +106,20 @@ variant.
 - [Docker Desktop deployment](DOCKER_DESKTOP_DEPLOYMENT.md)
 - [Docker Desktop validation](DOCKER_DESKTOP_VALIDATION.md)
 - [Docker Desktop troubleshooting](DOCKER_DESKTOP_TROUBLESHOOTING.md)
-- [Portfolio evidence](PORTFOLIO_EVIDENCE.md)
+
+## Presenting this project
+
+- [Portfolio evidence](PORTFOLIO_EVIDENCE.md) — what to have open, and what to say about the weak parts
+- [Interview guide](INTERVIEW_GUIDE.md) — the ten-minute tour
+- [interview/](interview/) — 107 questions with answers, cheat sheets
+- [academy/](academy/) — 19 modules that teach the platform from its own files
+- [screenshots/](screenshots/) — which consoles to capture, and the rules for capturing them
 
 ## Project
 
 - [Repository audit](AUDIT.md) — maturity scores and the road to v1.0
 - [Roadmap](ROADMAP.md)
+- [Release checklist](RELEASE_CHECKLIST.md) — verified before every tag
 - [Engineering principles](ENGINEERING_PRINCIPLES.md)
 - [Project charter](PROJECT_CHARTER.md)
 - [Glossary](PROJECT_GLOSSARY.md)

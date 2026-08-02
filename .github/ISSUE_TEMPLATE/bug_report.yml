@@ -1,0 +1,96 @@
+name: Bug report
+description: Something behaves differently from how it is documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if the symptom is a firing alert, its runbook in
+        `docs/observability/runbooks/` is the faster path.
+
+        **A green dashboard is not evidence that nothing is wrong.** If you
+        suspect something is failing silently, say so — those reports are the
+        most valuable ones this project receives.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behaviour, not your theory about the cause.
+      placeholder: |
+        `validate-platform.sh` exits 0 but the RESULT line reports 37 of 38
+        checks. The skipped check is not named.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: Quote the document or comment that led you to expect it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >-
+        Exact commands. Most of this repository runs without a cluster, so a
+        reproduction that needs one is worth flagging as such.
+      render: shell
+      placeholder: |
+        git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git ../NovaShop-GitOps
+        bash scripts/validate-platform.sh --gitops-dir ../NovaShop-GitOps
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: >-
+        Paste it rather than describing it. Redact tokens, passwords, Secret
+        values, and internal hostnames.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the repository
+      options:
+        - Validation gates (scripts/validate-*.sh)
+        - Node scripts (scripts/linux/, bootstrap, recovery)
+        - Backup and restore
+        - Helm chart
+        - Kubernetes / platform component values
+        - Terraform
+        - GitHub Actions workflows
+        - Application (backend or frontend)
+        - Documentation, ADRs, Academy
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, or `git rev-parse --short HEAD`.
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your environment
+      description: >-
+        Only what is relevant. For gate problems, the tool versions
+        (`helm version`, `kubeconform -v`, `python3 --version`) usually are.
+      placeholder: |
+        Ubuntu 22.04, helm 3.16.2, kubeconform 0.6.7, no cluster
+    validations:
+      required: false

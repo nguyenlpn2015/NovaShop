@@ -1,0 +1,28 @@
+# Blank issues are disabled so that every report arrives with the context a
+# maintainer needs to reproduce it. The templates below are short on purpose.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/nguyenlpn2015/NovaShop/security/advisories/new
+    about: >-
+      Private disclosure. Never open a public issue for a vulnerability — see
+      SECURITY.md for what to include and the response times to expect.
+
+  - name: Start here if you are new to the platform
+    url: https://github.com/nguyenlpn2015/NovaShop/tree/main/docs/academy
+    about: >-
+      NovaShop Academy teaches the platform from its own files. Nineteen
+      modules; start at Module 1.
+
+  - name: Look for the answer first
+    url: https://github.com/nguyenlpn2015/NovaShop/blob/main/docs/operations/troubleshooting.md
+    about: >-
+      Troubleshooting covers problems that have no alert. If the problem does
+      have an alert, its runbook is in docs/observability/runbooks/.
+
+  - name: Desired state lives in a second repository
+    url: https://github.com/nguyenlpn2015/NovaShop-GitOps
+    about: >-
+      Report anything about Applications, environment values, or sync
+      behaviour against NovaShop-GitOps, not here.
