@@ -3,10 +3,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 
+from app.api.middleware import request_id_middleware
 from app.api.router import api_router
+from app.core import logging as structured_logging
 from app.core.config import settings
 from app.core.datastores import datastores
+from app.db.session import dispose as dispose_engine
 from app.observability import metrics, tracing
+
+structured_logging.configure(settings.log_level)
 
 
 @asynccontextmanager
@@ -19,6 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await datastores.stop()
+        await dispose_engine()
 
 
 app = FastAPI(
@@ -32,7 +38,12 @@ app.include_router(api_router)
 
 # Middleware is registered before instrumentation so the metric records the
 # duration the client actually experiences, including any tracing overhead.
+#
+# Order matters and is the reverse of registration: the request ID must be set
+# before the metrics middleware runs, so a log line emitted while recording a
+# request already carries the ID.
 app.middleware("http")(metrics.metrics_middleware)
+app.middleware("http")(request_id_middleware)
 metrics.initialise()
 tracing.initialise(app)
 

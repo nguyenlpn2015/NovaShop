@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "NovaShop API"
     app_version: str = "0.1.0"
     environment: str = "development"
+    log_level: str = "INFO"
     database_url: PostgresDsn = PostgresDsn(
         "postgresql://novashop:novashop@postgres:5432/novashop"
     )

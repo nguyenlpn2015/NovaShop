@@ -86,6 +86,17 @@ class Datastores:
             return DependencyStatus("redis", False, _describe(error))
         return DependencyStatus("redis", True)
 
+    @property
+    def redis(self) -> redis.Redis | None:
+        """The Redis client, or None before start() / after stop().
+
+        Exposed so the cache layer can use the one client this process owns
+        rather than opening a second connection pool. Nullable on purpose: the
+        caller must decide what to do without a cache, and for every caller here
+        the answer is "read from PostgreSQL instead".
+        """
+        return self._redis
+
     async def check_all(self) -> list[DependencyStatus]:
         return list(await asyncio.gather(self.check_postgres(), self.check_redis()))
 

@@ -63,6 +63,50 @@ prometheus chart does not.
 `ignoreDifferences` on the two paths is the fix. It is in the Application in the
 GitOps repository.
 
+## The inverse problem: Synced and Healthy, and the work never ran
+
+Not every failure shows as OutOfSync. This one shows as nothing at all, and it is the
+reason the migration Job is worth understanding before you need it.
+
+**Hooks are not part of the desired state.** A resource annotated
+`argocd.argoproj.io/hook: PreSync` is not compared, is not reported in
+`status.resources`, and does not create drift. It is *executed* during a sync
+operation and nowhere else.
+
+Two consequences, both observed on this platform when the schema first shipped:
+
+**Enabling a hook does not trigger a sync.** Flipping `migrations.enabled` from
+`false` to `true` changed only a resource that Argo CD does not diff. There was
+no drift, so automated sync had nothing to do, so the hook never ran. Staging and
+production sat Synced and Healthy for as long as it took to notice, with entirely
+empty databases behind them.
+
+**A failing hook is retried before it is fatal.** The first attempt in development
+failed with `permission denied for schema public`, and the Application still
+reported Synced and Healthy while the retry backed off.
+
+Neither is a bug. Both mean the same thing: **the Application's status does not
+tell you whether the migration ran.** Ask the database.
+
+```sh
+kubectl -n novashop-<env> get job novashop-migrate
+kubectl -n novashop-<env> logs job/novashop-migrate
+
+sudo -u postgres psql -d novashop_<env> -tAc \
+  "SELECT version_num FROM alembic_version"
+```
+
+To make a hook run when nothing else changed, trigger a sync explicitly:
+
+```sh
+kubectl -n argocd patch application novashop-<env> --type merge \
+  -p '{"operation":{"initiatedBy":{"username":"operator"},"sync":{}}}'
+```
+
+`ttlSecondsAfterFinished` is 3600, so a Job that completed more than an hour ago
+has been collected and `kubectl get job` returns nothing. Absence of a Job is not
+evidence that one never ran — check `alembic_version`.
+
 ## Diff the right pair of states
 
 This is the part that costs hours if you get it wrong. Under `ServerSideApply`,
