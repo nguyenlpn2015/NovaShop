@@ -64,14 +64,36 @@ const STORAGE_KEY = "novashop-cart-id";
  *
  * The id is generated once and matches the character set the backend accepts,
  * because it becomes part of a Redis key.
+ *
+ * It is also the only thing protecting the cart. There is no session and no
+ * authentication, so the id is a bearer token in everything but name: whoever
+ * holds it reads and writes that cart. It therefore has to be unguessable, and
+ * `crypto.getRandomValues` is the only generator here that is unconditionally
+ * so.
+ *
+ * `crypto.randomUUID` was tried first and is the wrong choice, because it is
+ * restricted to secure contexts. On `http://localhost:3000` and
+ * `http://novashop.localhost` -- both documented, supported ways to run this
+ * application -- it is simply absent, and the fallback beside it was
+ * `Math.random`, which is a fast non-cryptographic PRNG whose output is
+ * predictable from prior values. Those are exactly the deployments that would
+ * have silently got guessable cart identifiers.
+ *
+ * `getRandomValues` carries no secure-context restriction, so there is one path
+ * instead of a strong one and a weak one, and no branch that can be taken by
+ * accident. 16 bytes is 128 bits, rendered as the same 32 hex characters the
+ * UUID path produced.
  */
 function readOrCreateId(): string {
   const existing = localStorage.getItem(STORAGE_KEY);
   if (existing) return existing;
-  const created =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID().replace(/-/g, "")
-      : Math.random().toString(36).slice(2).padEnd(16, "0");
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const created = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+
   localStorage.setItem(STORAGE_KEY, created);
   return created;
 }

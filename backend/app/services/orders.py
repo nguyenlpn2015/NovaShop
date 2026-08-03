@@ -48,10 +48,21 @@ async def place_order(session: AsyncSession, cart_id: str) -> dict:
         # reported when the cart was rendered are already stale by the time the
         # customer clicks; two concurrent checkouts for the last item must not
         # both succeed.
+        #
+        # ORDER BY is load-bearing, not tidiness. FOR UPDATE takes a row lock in
+        # whatever order the scan returns rows, and that order is not guaranteed
+        # to be stable between two executions of the same statement. Two
+        # checkouts whose carts overlap could therefore each hold the lock the
+        # other is waiting for -- PostgreSQL breaks the deadlock by killing one,
+        # which surfaces as a 500 rather than the 409 an out-of-stock conflict is
+        # supposed to produce. Locking in a deterministic order makes that
+        # deadlock unreachable: every transaction queues for the same rows in
+        # the same sequence.
         stock_rows = (
             await session.execute(
                 select(Inventory.product_id, Inventory.quantity)
                 .where(Inventory.product_id.in_(product_ids))
+                .order_by(Inventory.product_id)
                 .with_for_update()
             )
         ).all()
