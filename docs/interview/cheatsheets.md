@@ -31,7 +31,7 @@ Datastores: PostgreSQL 14 + Redis on the NODE, reached at 10.10.1.45 over pod ne
 ```
 
 **Numbers:** 12 Applications · 31 targets · 14 alerts / 14 runbooks · 93 gate checks ·
-15 ADRs · 13 architecture views · 7 Terraform layers · 121 documents · 1 node.
+14 ADRs · 13 architecture views · 7 Terraform layers · 134 markdown files · 1 node.
 
 ---
 

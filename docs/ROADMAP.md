@@ -17,7 +17,7 @@ behind them are in [AUDIT.md](AUDIT.md).
 | 7 | GitOps | Argo CD, ApplicationSet, AppProjects, sync waves — [ADR 003](../adr/003-gitops-delivery.md), [ADR 005](../adr/005-gitops-controller.md) |
 | 7.5 | **Platform guardrails** ✅ | Sprint 5.0. 93 automated checks across three gates, release gating, rehearsed recovery — [ADR 001](../adr/001-platform-guardrails.md), [Sprint 5.0](SPRINTS/Sprint-5.0.md) |
 | 8 | **Observability** ✅ | Sprint 5.1. 31 scrape targets, Loki + Alloy, 14 alerts with 14 runbooks — [ADR 004](../adr/004-log-collection-agent.md), [ADR 009](../adr/009-observability-stack.md) |
-| 8.5 | **Engineering documentation** ✅ | 13 architecture views, 15 ADRs, 6 operational guides, [AUDIT.md](AUDIT.md) |
+| 8.5 | **Engineering documentation** ✅ | 13 architecture views, 14 ADRs, 6 operational guides, [AUDIT.md](AUDIT.md) |
 | 9 | **Infrastructure as Code** ✅ | Sprint 6. 7 Terraform layers, non-cloud — [ADR 012](../adr/012-terraform-scope.md), [ADR 013](../adr/013-terraform-kubernetes-boundary.md), [ADR 014](../adr/014-terraform-gitops-handover.md) |
 | 10 | **Backup, restore, hardening** ✅ | Datastore backup and restore validated; default-deny ingress trialled live |
 | **v1.0.0** | **Released 2026-08-02** | Record and rescore in [AUDIT.md](AUDIT.md#v100--what-shipped) |

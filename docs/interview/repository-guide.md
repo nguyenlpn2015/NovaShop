@@ -32,7 +32,7 @@ The narrative matters because interviewers ask "how did this evolve?"
 | 6–7 | GitOps with Argo CD, three environments | Two repositories, SHA-pinned |
 | **7.5** | **Platform guardrails** (Sprint 5.0) | A gate that has only ever passed proves nothing |
 | **8** | **Observability** (Sprint 5.1) | Monitoring fails silently; validation must assert what rendering cannot |
-| 8.5 | Engineering documentation, 13 views, 15 ADRs | Documentation drifts toward optimism |
+| 8.5 | Engineering documentation, 13 views, 14 ADRs | Documentation drifts toward optimism |
 | **9** | **Terraform**, non-cloud (Sprint 6) | Check who owns a resource *before* declaring it |
 | 10 | Backup, restore, network policy hardening | A recovery script never run is a script that does not work |
 | **v1.0.0** | Released 2026-08-02 | Released with limitations stated on the front page |

@@ -138,5 +138,5 @@ problem, which is not the same as nothing being wrong.**
 
 - [Interview curriculum](../interview/) — 107 questions, once you have finished here
 - [Architecture](../architecture/) — 13 views
-- [ADRs](../../adr/) — 15 decisions, each with rejected alternatives
+- [ADRs](../../adr/) — 14 decisions, each with rejected alternatives
 - [Engineering log](../LEARNING_LOG.md) — the defects the Troubleshooting sections come from
