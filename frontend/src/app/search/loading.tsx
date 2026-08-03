@@ -11,16 +11,23 @@ import { ProductCardSkeleton } from "@/components/ProductCard";
  */
 
 /**
- * Shown while a server component fetches. Cards rather than a spinner: a
- * skeleton in the shape of the result reserves the layout, so the page does not
+ * Shown while a server component fetches. Cards in the shape of the result,
+ * under a heading block the same height as the real one, so the page does not
  * jump when data arrives.
  */
 export default function Loading() {
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {Array.from({ length: 8 }, (_, index) => (
-        <ProductCardSkeleton key={index} />
-      ))}
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <div className="skeleton h-3 w-16 rounded" />
+        <div className="skeleton h-9 w-72 rounded-lg" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }, (_, index) => (
+          <ProductCardSkeleton key={index} />
+        ))}
+      </div>
     </div>
   );
 }

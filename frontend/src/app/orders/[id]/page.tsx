@@ -26,57 +26,94 @@ export default async function OrderPage({
   }
 
   return (
-    <div className="mx-auto max-w-2xl animate-fade-up space-y-6">
+    <div className="mx-auto max-w-3xl animate-fade-up space-y-8">
       {placed && (
         <div
-          className="rounded-card border border-positive/30 bg-positive/10 px-4 py-3
-                     text-sm text-positive"
+          className="flex items-start gap-3 rounded-card border border-positive/30
+                     bg-positive/10 px-4 py-3.5 text-sm text-positive"
         >
-          Order placed. It exists in PostgreSQL and stock has been decremented.
+          <span
+            aria-hidden
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center
+                       rounded-full bg-positive/20"
+          >
+            ✓
+          </span>
+          <span>
+            <strong className="font-semibold">Order placed.</strong> It exists in
+            PostgreSQL and stock has been decremented.
+          </span>
         </div>
       )}
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">Order #{order.id}</h1>
-        <Link href="/orders" className="text-sm text-accent hover:underline">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">Order</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-display">
+            #{order.id}
+          </h1>
+        </div>
+        <Link
+          href="/orders"
+          className="btn-secondary"
+        >
           All orders →
         </Link>
       </div>
 
-      <div className="card divide-y divide-edge">
-        {order.items.map((item) => (
-          <div key={item.slug} className="flex items-center gap-3 p-3">
-            <Link href={`/products/${item.slug}`} className="min-w-0 flex-1 truncate hover:text-accent">
-              {item.name}
-            </Link>
-            <span className="text-sm text-content-muted">× {item.quantity}</span>
-            <span className="w-28 text-right tabular-nums">
-              {formatPrice(item.subtotal_cents)}
-            </span>
-          </div>
-        ))}
-        <div className="flex items-center justify-between p-3 font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">{formatPrice(order.total_cents)}</span>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="card p-4">
+          <dt className="eyebrow">Status</dt>
+          <dd className="mt-1.5 font-medium capitalize">{order.status}</dd>
         </div>
-      </div>
-
-      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-        <div className="card p-3">
-          <dt className="text-content-faint">Status</dt>
-          <dd className="mt-0.5 font-medium">{order.status}</dd>
+        <div className="card p-4">
+          <dt className="eyebrow">Customer</dt>
+          <dd className="mt-1.5 truncate font-medium">{order.customer}</dd>
         </div>
-        <div className="card p-3">
-          <dt className="text-content-faint">Customer</dt>
-          <dd className="mt-0.5 truncate font-medium">{order.customer}</dd>
-        </div>
-        <div className="card p-3">
-          <dt className="text-content-faint">Placed</dt>
-          <dd className="mt-0.5 font-medium">
+        <div className="card p-4">
+          <dt className="eyebrow">Placed</dt>
+          {/* ISO, sliced to the date. A locale-formatted date rendered on the
+              server and hydrated on the client can disagree, and the mismatch
+              is reported as a hydration error rather than as a wrong date. */}
+          <dd className="mt-1.5 font-medium tabular-nums">
             {new Date(order.created_at).toISOString().slice(0, 10)}
           </dd>
         </div>
       </dl>
+
+      <div className="card overflow-hidden">
+        <h2 className="border-b border-edge bg-surface-sunken px-5 py-3">
+          <span className="eyebrow">
+            {order.items.length} line{order.items.length === 1 ? "" : "s"}
+          </span>
+        </h2>
+
+        <div className="divide-y divide-edge">
+          {order.items.map((item) => (
+            <div key={item.slug} className="flex items-center gap-4 px-5 py-3.5">
+              <Link
+                href={`/products/${item.slug}`}
+                className="min-w-0 flex-1 truncate font-medium transition hover:text-accent"
+              >
+                {item.name}
+              </Link>
+              <span className="shrink-0 text-sm text-content-muted tabular-nums">
+                × {item.quantity}
+              </span>
+              <span className="w-32 shrink-0 text-right tabular-nums">
+                {formatPrice(item.subtotal_cents)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-baseline justify-between border-t border-edge bg-surface-sunken px-5 py-4">
+          <span className="font-medium">Total</span>
+          <span className="text-2xl font-semibold tabular-nums tracking-display">
+            {formatPrice(order.total_cents)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

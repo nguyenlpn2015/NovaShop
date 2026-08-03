@@ -16,41 +16,72 @@ export default async function OrdersPage() {
   const orders = await getOrders();
 
   return (
-    <div className="animate-fade-up space-y-5">
+    <div className="animate-fade-up space-y-8">
       <div>
-        <h1 className="text-xl font-semibold">Orders</h1>
-        <p className="mt-1 text-sm text-content-muted">
+        <h1 className="text-3xl font-semibold tracking-display sm:text-4xl">Orders</h1>
+        <p className="mt-2 text-sm text-content-muted">
           The twenty most recent. Seeded history plus anything placed here.
         </p>
       </div>
 
-      <div className="card divide-y divide-edge overflow-hidden">
-        {orders.map((order) => (
-          <Link
-            key={order.id}
-            href={`/orders/${order.id}`}
-            className="flex items-center gap-4 px-4 py-3 transition hover:bg-surface-sunken"
-          >
-            <span className="w-16 font-mono text-sm text-content-muted">
-              #{order.id}
-            </span>
-            <span className="min-w-0 flex-1 truncate">{order.customer}</span>
-            <span className="hidden text-sm text-content-muted sm:block">
-              {order.line_count} line{order.line_count === 1 ? "" : "s"}
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
-                TONE[order.status] ?? "bg-surface-sunken text-content-muted ring-edge"
-              }`}
-            >
-              {order.status}
-            </span>
-            <span className="w-28 text-right font-medium tabular-nums">
-              {formatPrice(order.total_cents)}
-            </span>
+      {orders.length === 0 ? (
+        <div className="card p-14 text-center">
+          <p className="font-medium">No orders yet.</p>
+          <Link href="/products" className="btn-primary mt-5">
+            Browse products
           </Link>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          {/* A header row, so the columns are labelled rather than guessed at.
+              Hidden on narrow screens, where the rows collapse and the labels
+              would take a whole line of their own to describe two fields. */}
+          <div
+            className="hidden items-center gap-4 border-b border-edge bg-surface-sunken
+                       px-5 py-2.5 sm:flex"
+          >
+            <span className="eyebrow w-20">Order</span>
+            <span className="eyebrow min-w-0 flex-1">Customer</span>
+            <span className="eyebrow w-16 text-right">Lines</span>
+            <span className="eyebrow w-24 text-center">Status</span>
+            <span className="eyebrow w-32 text-right">Total</span>
+          </div>
+
+          <div className="divide-y divide-edge">
+            {orders.map((order) => (
+              <Link
+                key={order.id}
+                href={`/orders/${order.id}`}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5
+                           transition hover:bg-surface-sunken"
+              >
+                <span className="w-20 font-mono text-sm text-content-muted">
+                  #{order.id}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {order.customer}
+                </span>
+                <span className="w-16 text-right text-sm text-content-muted tabular-nums">
+                  {order.line_count}
+                </span>
+                <span className="flex w-24 justify-center">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+                      TONE[order.status] ??
+                      "bg-surface-sunken text-content-muted ring-edge"
+                    }`}
+                  >
+                    {order.status}
+                  </span>
+                </span>
+                <span className="w-32 text-right font-semibold tabular-nums">
+                  {formatPrice(order.total_cents)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

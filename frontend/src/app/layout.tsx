@@ -3,7 +3,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CartProvider } from "@/components/CartProvider";
-import { CartBadge, SearchBox, ThemeToggle } from "@/components/Chrome";
+import { CartBadge, MobileNav, SearchBox, ThemeToggle } from "@/components/Chrome";
+import { Logo } from "@/components/Logo";
 import { ToastProvider } from "@/components/Toast";
 
 import "./globals.css";
@@ -43,6 +44,11 @@ const THEME_SCRIPT = `
 const BUILD_SHA = process.env.BUILD_SHA ?? "development";
 const ENVIRONMENT = process.env.APP_ENVIRONMENT ?? "local";
 
+const NAV: { label: string; href: string }[] = [
+  { label: "Products", href: "/products" },
+  { label: "Orders", href: "/orders" },
+];
+
 const FOOTER_LINKS: { heading: string; links: { label: string; href: string }[] }[] = [
   {
     heading: "Shop",
@@ -63,6 +69,20 @@ const FOOTER_LINKS: { heading: string; links: { label: string; href: string }[] 
   },
 ];
 
+/**
+ * Links out to the repository rather than to invented corporate pages. A
+ * footer column of About / Careers / Press on a portfolio project is four dead
+ * links; these four resolve to something a reader can actually check.
+ */
+const REPO = "https://github.com/nguyenlpn2015/NovaShop";
+
+const PLATFORM_LINKS: { label: string; href: string }[] = [
+  { label: "Source", href: REPO },
+  { label: "Architecture", href: `${REPO}/tree/main/docs/architecture` },
+  { label: "Its own audit", href: `${REPO}/blob/main/docs/AUDIT.md` },
+  { label: "Decision records", href: `${REPO}/tree/main/adr` },
+];
+
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -74,79 +94,98 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <CartProvider>
             {/* Not a fake discount banner. It says what the site is, which is
                 the one thing a first-time visitor actually needs. */}
-            <div className="bg-accent px-4 py-2 text-center text-xs text-accent-contrast">
-              A working storefront on a single-node Kubernetes platform ·{" "}
-              <a
-                href="https://github.com/nguyenlpn2015/NovaShop"
-                className="font-semibold underline underline-offset-2"
+            <div className="border-b border-edge bg-surface-sunken">
+              <p
+                className="mx-auto flex max-w-7xl items-center justify-center gap-2
+                           px-4 py-2 text-center text-xs text-content-muted"
               >
-                read how it is built
-              </a>
+                <span
+                  aria-hidden
+                  className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-positive"
+                />
+                <span className="truncate">
+                  A working storefront on a single-node Kubernetes platform
+                </span>
+                <a
+                  href={REPO}
+                  className="shrink-0 font-semibold text-accent underline-offset-4 hover:underline"
+                >
+                  read how it is built
+                </a>
+              </p>
             </div>
 
-            <header className="sticky top-0 z-40 border-b border-edge bg-surface/85 backdrop-blur">
-              <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-                <Link href="/" className="flex shrink-0 items-center gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/img/brand/logo.webp"
-                    alt=""
-                    width={28}
-                    height={28}
-                    className="rounded-lg"
-                  />
-                  <span className="text-lg font-semibold tracking-tight">
-                    Nova<span className="text-accent">Shop</span>
+            <header className="glass sticky top-0 z-40 border-b">
+              <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
+                <Link
+                  href="/"
+                  className="group flex shrink-0 items-center gap-2.5"
+                  aria-label="NovaShop home"
+                >
+                  <Logo className="h-8 w-8 transition duration-300 group-hover:scale-105" />
+                  <span className="text-lg font-semibold tracking-display">
+                    Nova<span className="gradient-text">Shop</span>
                   </span>
                 </Link>
 
-                <nav className="hidden gap-5 text-sm text-content-muted sm:flex">
-                  <Link href="/products" className="transition hover:text-content">
-                    Products
-                  </Link>
-                  <Link href="/orders" className="transition hover:text-content">
-                    Orders
-                  </Link>
+                <nav
+                  aria-label="Main"
+                  className="ml-3 hidden items-center gap-1 text-sm sm:flex"
+                >
+                  {NAV.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="rounded-lg px-3 py-1.5 text-content-muted transition
+                                 hover:bg-surface-sunken hover:text-content"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                 </nav>
 
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ml-auto flex items-center gap-1">
                   <SearchBox />
                   <CartBadge />
                   <ThemeToggle />
                 </div>
               </div>
+
+              {/* The same two destinations, kept reachable below the search
+                  field on narrow screens. Hiding navigation on mobile and
+                  calling it responsive leaves the phone with no way through the
+                  site except the logo. */}
+              <MobileNav items={NAV} />
             </header>
 
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:py-10">
+              {children}
+            </main>
 
-            <footer className="mt-8 border-t border-edge bg-surface-sunken">
-              <div className="mx-auto max-w-6xl px-4 py-10">
-                <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <footer className="mt-12 border-t border-edge bg-surface-sunken">
+              <div className="mx-auto max-w-7xl px-4 py-12">
+                <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
                   <div className="lg:col-span-2">
-                    <div className="flex items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/img/brand/logo.webp"
-                        alt=""
-                        width={24}
-                        height={24}
-                        className="rounded-md"
-                      />
-                      <span className="font-semibold">NovaShop</span>
+                    <div className="flex items-center gap-2.5">
+                      <Logo className="h-7 w-7" />
+                      <span className="font-semibold tracking-display">NovaShop</span>
                     </div>
-                    <p className="mt-3 max-w-sm text-sm leading-relaxed text-content-muted">
+                    <p className="mt-4 max-w-sm text-sm leading-relaxed text-content-muted">
                       Everyday goods, well made. The storefront is real and the
                       platform underneath it is the part worth reading — the
                       source is public and so is its own audit.
                     </p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <span className="chip">128 products</span>
+                      <span className="chip">8 categories</span>
+                      <span className="chip">Cart in Redis</span>
+                    </div>
                   </div>
 
                   {FOOTER_LINKS.map((column) => (
                     <div key={column.heading}>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-content-faint">
-                        {column.heading}
-                      </h3>
-                      <ul className="mt-3 space-y-2 text-sm">
+                      <h3 className="eyebrow">{column.heading}</h3>
+                      <ul className="mt-4 space-y-2.5 text-sm">
                         {column.links.map((link) => (
                           <li key={link.href}>
                             <Link
@@ -160,10 +199,26 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
                       </ul>
                     </div>
                   ))}
+
+                  <div>
+                    <h3 className="eyebrow">The platform</h3>
+                    <ul className="mt-4 space-y-2.5 text-sm">
+                      {PLATFORM_LINKS.map((link) => (
+                        <li key={link.href}>
+                          <a
+                            href={link.href}
+                            className="text-content-muted transition hover:text-content"
+                          >
+                            {link.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
 
                 <div
-                  className="mt-8 flex flex-col gap-3 border-t border-edge pt-5 text-xs
+                  className="mt-10 flex flex-col gap-3 border-t border-edge pt-6 text-xs
                              text-content-muted sm:flex-row sm:items-center sm:justify-between"
                 >
                   <p>
@@ -174,10 +229,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
                       happen from outside the cluster. It is here for that
                       reason, not decoration. */}
                   <p className="flex items-center gap-2 font-mono">
-                    <span className="rounded bg-surface px-1.5 py-0.5 ring-1 ring-edge">
+                    <span className="rounded-md bg-surface px-2 py-0.5 ring-1 ring-edge">
                       {ENVIRONMENT}
                     </span>
-                    <span className="rounded bg-surface px-1.5 py-0.5 ring-1 ring-edge">
+                    <span className="rounded-md bg-surface px-2 py-0.5 ring-1 ring-edge">
                       {BUILD_SHA.slice(0, 7)}
                     </span>
                   </p>

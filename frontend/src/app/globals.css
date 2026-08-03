@@ -7,35 +7,49 @@
  * <alpha-value> syntax works. Every component names a role -- surface, content,
  * accent -- and never a hue, so the whole palette can be changed in this file
  * without touching a component.
+ *
+ * The dark theme is the designed one. Light is a first-class alternative rather
+ * than an afterthought, because the toggle in the header promises both, but the
+ * contrast ratios below were chosen against the dark surfaces first.
  */
 :root {
   --surface: 255 255 255;
   --surface-raised: 255 255 255;
-  --surface-sunken: 245 246 248;
-  --content: 17 24 39;
-  --content-muted: 75 85 99;
-  --content-faint: 156 163 175;
-  --accent: 29 78 216;
-  --accent-hover: 30 64 175;
+  --surface-sunken: 244 246 250;
+  --content: 12 16 26;
+  --content-muted: 82 91 110;
+  --content-faint: 140 149 168;
+  --accent: 37 71 214;
+  --accent-hover: 27 55 178;
+  --accent-alt: 124 58 237;
   --accent-contrast: 255 255 255;
-  --edge: 226 232 240;
-  --positive: 21 128 61;
+  --edge: 223 228 238;
+  --positive: 4 120 87;
   --caution: 180 83 9;
+
+  /* How strongly the page-level glow reads. Light surfaces need far less of it
+     before it turns into haze. */
+  --ambient: 0.055;
 }
 
 .dark {
-  --surface: 15 18 24;
-  --surface-raised: 22 26 34;
-  --surface-sunken: 11 13 18;
-  --content: 237 240 245;
-  --content-muted: 156 163 175;
-  --content-faint: 107 114 128;
-  --accent: 96 165 250;
-  --accent-hover: 147 197 253;
-  --accent-contrast: 9 12 17;
-  --edge: 39 45 56;
-  --positive: 74 222 128;
+  --surface: 9 11 17;
+  --surface-raised: 17 20 29;
+  --surface-sunken: 6 7 12;
+  --content: 242 244 248;
+  --content-muted: 154 161 178;
+  --content-faint: 104 112 130;
+  --accent: 96 129 255;
+  --accent-hover: 138 164 255;
+  --accent-alt: 167 139 250;
+  /* Dark text on a bright accent, not white. White on this blue is 3.6:1 --
+     below the 4.5:1 a button label needs. Near-black on it is 6.4:1. */
+  --accent-contrast: 6 8 14;
+  --edge: 32 37 50;
+  --positive: 52 211 153;
   --caution: 251 191 36;
+
+  --ambient: 0.16;
 }
 
 @layer base {
@@ -49,6 +63,39 @@
 
   body {
     @apply bg-surface text-content antialiased;
+  }
+
+  /* The page-level ambience: two accent washes anchored to the top of the
+     viewport. Fixed and behind everything, so it costs no layout and scrolls
+     with nothing -- a gradient on <main> would slide away and take the depth
+     with it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        60rem 32rem at 15% -8%,
+        rgb(var(--accent) / var(--ambient)),
+        transparent 70%
+      ),
+      radial-gradient(
+        48rem 28rem at 92% -4%,
+        rgb(var(--accent-alt) / var(--ambient)),
+        transparent 70%
+      );
+  }
+
+  /* Display type wants tighter tracking than body type at the same weight.
+     There is no webfont here on purpose -- next/font/google fetches at build
+     time, and the release build has no egress -- so the typographic character
+     has to come from spacing and scale rather than from a typeface. */
+  h1,
+  h2,
+  h3 {
+    font-feature-settings: "ss01", "cv01";
   }
 
   /* Visible focus, always. Removing the outline without replacing it makes the
@@ -69,12 +116,89 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.28);
+  }
 }
 
 @layer components {
+  /* --- Surfaces ------------------------------------------------------- */
+
   .card {
     @apply rounded-card border border-edge bg-surface-raised;
   }
+
+  /* A card that responds to the pointer. Separate from .card because a
+     stationary panel that lifts on hover suggests it is clickable when it is
+     not. */
+  .card-interactive {
+    @apply card transition duration-300 hover:-translate-y-0.5
+           hover:border-accent/40 hover:shadow-lift;
+  }
+
+  /* The glass treatment used by the header and by overlays. The saturate is
+     what stops backdrop-blur turning a colourful page grey behind it. */
+  .glass {
+    @apply border-edge bg-surface/70;
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+
+  /* --- Controls -------------------------------------------------------- */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm
+           font-medium transition duration-200
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent px-5 py-2.5 text-accent-contrast
+           hover:bg-accent-hover hover:shadow-glow;
+  }
+
+  .btn-secondary {
+    @apply btn border border-edge bg-surface-raised px-5 py-2.5
+           hover:border-accent/50 hover:text-accent;
+  }
+
+  .btn-ghost {
+    @apply btn px-3 py-2 text-content-muted hover:bg-surface-sunken
+           hover:text-content;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-edge bg-surface-sunken px-3.5 py-2
+           text-sm transition placeholder:text-content-faint
+           focus:border-accent/60 focus:bg-surface;
+  }
+
+  /* --- Small type ------------------------------------------------------ */
+
+  .eyebrow {
+    @apply text-[0.6875rem] font-semibold uppercase tracking-[0.18em]
+           text-content-faint;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-edge
+           bg-surface-raised px-3 py-1 text-xs font-medium text-content-muted;
+  }
+
+  /* A gradient wordmark. Used once, on the logo, and on nothing else -- a page
+     where four things glow has no emphasis left to give. */
+  .gradient-text {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--accent)),
+      rgb(var(--accent-alt))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* --- Loading --------------------------------------------------------- */
 
   .skeleton {
     @apply relative overflow-hidden bg-surface-sunken;

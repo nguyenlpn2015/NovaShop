@@ -26,14 +26,12 @@ export function AddToCart({
   }
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-3">
+    <div className="mt-7 flex flex-wrap items-center gap-3">
       <button
         type="button"
         onClick={add}
         disabled={!inStock || busy || pending || existing >= 10}
-        className="w-full rounded-lg bg-accent px-5 py-3 font-medium
-                   text-accent-contrast transition hover:bg-accent-hover
-                   disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+        className="btn-primary w-full py-3.5 text-base sm:w-auto sm:px-8"
       >
         {!inStock
           ? "Out of stock"
