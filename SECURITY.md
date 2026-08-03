@@ -59,6 +59,54 @@ Good-faith research that follows this policy, avoids privacy violations and
 service disruption, and reports findings promptly will be treated as
 authorized for the purpose of improving NovaShop's security.
 
+## Vulnerability Scanning and What Blocks a Release
+
+Container images are scanned by Trivy in
+[`.github/workflows/release.yml`](.github/workflows/release.yml) before the
+workflow holds any registry credential. The image is built into the local daemon
+with `push: false`, scanned, and only then is a login performed — so an image
+that fails the scan has nowhere to go. This ordering is the control; it is not a
+convention that a later edit can quietly break without also moving the login
+step.
+
+The gate is deliberately narrower than "no vulnerabilities", and the boundary is
+worth stating precisely:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| `scanners` | `vuln,secret` | Package vulnerabilities and committed secrets |
+| `severity` | `CRITICAL,HIGH` | MEDIUM and below are reported by Dependabot, not release-blocking |
+| `exit-code` | `1` | A finding fails the job, and therefore the release |
+| `ignore-unfixed` | `true` | **See below** |
+
+### Why `ignore-unfixed` is enabled
+
+`ignore-unfixed: true` means a CRITICAL or HIGH vulnerability with **no
+available fix** does not block a release.
+
+This is an accepted risk, not an oversight. A base image frequently carries
+disclosed vulnerabilities for which no patched package has yet been published by
+the distribution. Failing the build on those produces a pipeline that cannot
+release at all, for a condition no change to this repository can clear — and a
+gate that blocks everything is one that gets bypassed, which is strictly worse
+than a gate with a stated boundary.
+
+The consequence is explicit: **an unfixed CRITICAL vulnerability can be present
+in a published image.** What limits the exposure is that base images are pinned
+and updated by Dependabot, so a fix is picked up as soon as one exists, and the
+scan output is retained on every release run rather than discarded.
+
+To see what is currently being tolerated, drop the flag locally — no credential
+is required, and nothing is published:
+
+```sh
+docker build -t novashop-backend:audit backend
+trivy image --scanners vuln --severity CRITICAL,HIGH novashop-backend:audit
+```
+
+If that output ever contains a **fixed** CRITICAL or HIGH, the release gate is
+not working and it should be reported through the process above.
+
 ## Operational Security
 
 - Never commit secrets or sensitive production data.

@@ -1031,7 +1031,7 @@ means for Argo CD's sync status.
 | To learn it properly, with labs | [docs/academy/](academy/) — 19 modules |
 | To be asked hard questions | [docs/interview/questions.md](interview/questions.md) — 107 |
 | The diagrams | [docs/architecture/](architecture/) — 13 views |
-| The decisions | [adr/](../adr/) — 15, each with rejected alternatives |
+| The decisions | [adr/](../adr/) — 14, each with rejected alternatives |
 | The honest scoring | [AUDIT.md](AUDIT.md) |
 | The defects | [LEARNING_LOG.md](LEARNING_LOG.md) |
 | To run it | [operations/local-development.md](operations/local-development.md) |

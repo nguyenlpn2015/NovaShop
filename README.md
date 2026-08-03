@@ -13,8 +13,10 @@ disaster recovery — running on a single Ubuntu node.
 The storefront is real -- a catalogue, a cart in Redis, orders written inside a
 transaction. It is deliberately modest, because **the platform around it is the subject.**
 
-**v1.0.0**, and `main` is 15 commits past it — the storefront, cart, checkout and admin
-landed after the tag. Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
+**v1.0.0** is tagged, and `main` has moved past it — the storefront, cart, checkout and
+admin all landed after the tag
+([what changed](https://github.com/nguyenlpn2015/NovaShop/compare/v1.0.0...main)).
+Live at [novashop.smartdev.vn](https://novashop.smartdev.vn) ·
 [staging](https://staging.novashop.smartdev.vn) ·
 [dev](https://dev.novashop.smartdev.vn) ·
 [CHANGELOG](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md)
@@ -33,7 +35,7 @@ Measured on the running platform, not aspirational.
 | Prometheus scrape targets | **31 / 31** up |
 | Alert rules, each with a runbook | **14**, all verified to resolve to a real file |
 | Automated pre-merge checks | **94** across three gates (39 · 30 · 25) |
-| Architecture Decision Records | **15**, each with rejected alternatives |
+| Architecture Decision Records | **14**, each with rejected alternatives |
 | Architecture views | **13**, all Mermaid, all diffable |
 | Terraform layers | **7**, `fmt` clean, all validate |
 | TLS | Let's Encrypt, HSTS enforced, renewal monitored |
@@ -165,7 +167,7 @@ Saying no is part of the design. Each has a recorded reason.
 
 | Not here | Why |
 |---|---|
-| Distributed tracing | **Deferred on capacity, not on value.** Two of the three conditions [ADR 011](adr/011-distributed-tracing.md) set for revisiting are now met — checkout spans Redis and PostgreSQL, and every page is a two-service call. The node is at ~150% committed memory; Tempo would displace the observability already running |
+| A tracing **backend** — not the instrumentation | **The instrumentation ships and is dormant.** [`tracing.py`](backend/app/observability/tracing.py) wires OpenTelemetry across the three hops that matter — inbound HTTP, PostgreSQL, Redis — and stays off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set, because an OTLP exporter retries and a collector that does not exist yet produces error storms in every replica and no traces. What is absent is Tempo. Two of the three conditions [ADR 011](adr/011-distributed-tracing.md) set for revisiting are now met — checkout spans Redis and PostgreSQL, and every page is a two-service call — but the node is at ~150% committed memory and Tempo would displace observability that is already working. Setting one environment variable turns tracing on with no code change |
 | High availability | One node. Every document says so rather than implying redundancy. |
 | Service mesh, Kyverno, Vault | Pod Security Admission and RBAC already cover what these would add here |
 | Alert routing | Needs a credential this repository does not hold and an on-call decision |
@@ -188,7 +190,7 @@ A platform whose own audit is flattering is not an audit.
 ## Repository layout
 
 ```
-adr/                    15 decision records
+adr/                    14 decision records, plus a template
 backend/                FastAPI + hand-written Prometheus instrumentation
 frontend/               Next.js
 helm/novashop/          The application chart
@@ -207,6 +209,21 @@ Desired state lives in a second repository:
 
 ## Verify any claim on this page
 
+The gates need three tools that are not on a stock machine. They check for each one
+and stop immediately if it is missing, so install them first:
+
+```sh
+# yamllint    lints every manifest
+# kubeconform validates manifests against the Kubernetes schemas
+# helm        renders the chart the gates then validate
+pipx install yamllint                                   # or: pip install --user yamllint
+brew install kubeconform helm                           # macOS / Linuxbrew
+# Linux:   see kubeconform + helm release pages for the binaries
+# Windows: winget install YannHamon.kubeconform Helm.Helm
+```
+
+`kustomize` and `kubectl` are used if present and skipped if not.
+
 ```sh
 git clone https://github.com/nguyenlpn2015/NovaShop.git
 git clone https://github.com/nguyenlpn2015/NovaShop-GitOps.git
@@ -220,7 +237,9 @@ docker run --rm -v "$PWD:/repo" -w /repo hashicorp/terraform:1.9.8 \
   fmt -check -recursive terraform
 ```
 
-All three run without a cluster and without credentials.
+All three run without a cluster and without credentials. `validate-gitops-revisions.sh`
+reaches GHCR to confirm each pinned image exists; run it with
+`VERIFY_IMAGE_AVAILABILITY=false` to stay entirely offline.
 
 ## Documentation
 

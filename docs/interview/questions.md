@@ -744,7 +744,7 @@ number in the README against the live platform before release.
 Run `recover.sh` in week one rather than month three. And treat a test that agrees with me as
 suspect by default.
 
-### T18. How do you keep 121 documents accurate?
+### T18. How do you keep 134 markdown files accurate?
 
 **Answer.** Imperfectly. A link checker catches structural rot. Version numbers are verified
 against the live platform at release. What is not automated is semantic drift — the Ubuntu
@@ -860,7 +860,7 @@ defensible and 74 variables would not exist.
 **Reasoning.** The counter-argument is that the layers are the demonstration. That is true and
 it is also the argument every over-engineered system makes.
 
-### P10. Reconcile "avoid unnecessary complexity" with 15 ADRs and 121 documents.
+### P10. Reconcile "avoid unnecessary complexity" with 14 ADRs and 134 markdown files.
 
 **Answer.** Complexity is in the running system, not the explanation of it. The running system
 is small: one node, eight Helm templates, twelve Applications, no mesh, no operator, no
