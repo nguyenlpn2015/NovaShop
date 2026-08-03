@@ -39,14 +39,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`animate-fade-up rounded-lg px-4 py-3 text-sm shadow-lg
-                        ring-1 backdrop-blur ${
+            className={`flex animate-fade-up items-start gap-2.5 rounded-xl px-4 py-3
+                        text-sm shadow-lift ring-1 backdrop-blur ${
                           toast.tone === "error"
                             ? "bg-surface-raised text-caution ring-caution/30"
                             : "bg-surface-raised text-content ring-edge"
                         }`}
           >
-            {toast.message}
+            <span
+              aria-hidden
+              className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                toast.tone === "error" ? "bg-caution" : "bg-positive"
+              }`}
+            />
+            <span className="min-w-0 flex-1">{toast.message}</span>
           </div>
         ))}
       </div>

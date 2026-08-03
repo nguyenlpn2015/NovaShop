@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { ProductSummary } from "@/lib/api";
-import { formatPrice, slugHue } from "@/lib/format";
+import { formatPrice, productTint } from "@/lib/format";
 
 export function RatingStars({
   rating,
@@ -16,13 +16,13 @@ export function RatingStars({
 
   const rounded = Math.round(rating);
   return (
-    <span className="flex items-center gap-1 text-xs text-content-muted">
-      <span aria-hidden className="text-caution">
+    <span className="flex items-center gap-1.5 text-xs text-content-muted">
+      <span aria-hidden className="tracking-wide text-caution">
         {"★".repeat(rounded)}
-        <span className="text-content-faint">{"★".repeat(5 - rounded)}</span>
+        <span className="text-content-faint/60">{"★".repeat(5 - rounded)}</span>
       </span>
       <span className="sr-only">{rating} out of 5</span>
-      <span>
+      <span className="tabular-nums">
         {rating.toFixed(1)} ({count})
       </span>
     </span>
@@ -48,26 +48,43 @@ export function StockBadge({ inStock }: { inStock: boolean }) {
 }
 
 export function ProductCard({ product }: { product: ProductSummary }) {
-  const hue = slugHue(product.slug);
-
   return (
+    // One anchor for the whole card, and nothing interactive inside it. A
+    // second link nested here would be invalid HTML and would make the card
+    // ambiguous to a keyboard: two tab stops, one visual target.
     <Link
       href={`/products/${product.slug}`}
-      className="card group flex animate-fade-up flex-col overflow-hidden transition
-                 hover:border-accent/40 hover:shadow-lg hover:shadow-black/5"
+      className="card-interactive group flex animate-fade-up flex-col overflow-hidden"
     >
       <div
-        className="relative aspect-square overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg,
-            hsl(${hue} 62% 62%), hsl(${(hue + 48) % 360} 58% 44%))`,
-        }}
+        className="relative aspect-square overflow-hidden bg-surface-sunken"
+        style={{ backgroundImage: productTint(product.slug, product.category_slug) }}
       >
         {/* Square, not 4:3. Product photography is square almost everywhere,
             and a grid of squares reads as a catalogue rather than as a blog. */}
+        {/* The artwork is transparent, so this wash is visible through it rather
+            than hidden behind it -- which is also what makes one file suit both
+            themes. A slow or missing file degrades to the tinted tile instead of
+            a broken icon.
+            Plain <img> rather than next/image: optimisation writes to
+            .next/cache, and the container has a read-only root filesystem.
+            It stays first in this subtree -- a test asserts the card's first
+            image is the product, which is what caught /products/ vs /img/. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={product.image_path}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={`h-full w-full object-cover transition duration-700
+                     group-hover:scale-[1.07] ${
+                       product.in_stock ? "" : "opacity-60 saturate-50"
+                     }`}
+        />
+
         {!product.in_stock && (
           <span
-            className="absolute left-2 top-2 z-10 rounded-full bg-surface/90 px-2 py-0.5
+            className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1
                        text-[10px] font-semibold uppercase tracking-wide
                        text-content-muted backdrop-blur"
           >
@@ -76,39 +93,36 @@ export function ProductCard({ product }: { product: ProductSummary }) {
         )}
         {product.rating !== null && product.rating >= 4.5 && product.in_stock && (
           <span
-            className="absolute left-2 top-2 z-10 rounded-full bg-positive px-2 py-0.5
+            className="absolute left-3 top-3 rounded-full bg-positive px-2.5 py-1
                        text-[10px] font-semibold uppercase tracking-wide text-white"
           >
             Highly rated
           </span>
         )}
-        {/* The image sits over a gradient derived from the slug, so a slow or
-            missing file degrades to a coloured tile rather than a broken icon.
-            Plain <img> rather than next/image: optimisation writes to
-            .next/cache, and the container has a read-only root filesystem. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.image_path}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className={`h-full w-full object-cover transition duration-500
-                     group-hover:scale-[1.06] ${product.in_stock ? "" : "opacity-60 saturate-50"}`}
-        />
+
+        {/* An affordance, not a control -- it is a span, so the card still has
+            exactly one focusable element. It only appears on pointer hover,
+            where a cursor already implies the whole tile is clickable. */}
+        <span
+          aria-hidden
+          className="absolute inset-x-3 bottom-3 flex translate-y-2 items-center
+                     justify-between rounded-xl bg-surface/85 px-3 py-2 text-xs
+                     font-medium opacity-0 backdrop-blur transition duration-300
+                     group-hover:translate-y-0 group-hover:opacity-100"
+        >
+          View product
+          <span className="text-accent">→</span>
+        </span>
       </div>
 
-      {/* A quiet lift on hover. Enough to feel responsive, not enough to make
-          a grid of twelve cards feel unstable. */}
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <span className="text-xs uppercase tracking-wide text-content-faint">
-          {product.category_name}
-        </span>
-        <h3 className="line-clamp-2 font-medium leading-snug group-hover:text-accent">
+        <span className="eyebrow">{product.category_name}</span>
+        <h3 className="line-clamp-2 font-medium leading-snug transition group-hover:text-accent">
           {product.name}
         </h3>
         <RatingStars rating={product.rating} count={product.review_count} />
-        <div className="mt-auto flex items-baseline justify-between pt-2">
-          <span className="text-lg font-semibold">
+        <div className="mt-auto flex items-baseline justify-between gap-2 pt-3">
+          <span className="text-lg font-semibold tabular-nums tracking-display">
             {formatPrice(product.price_cents)}
           </span>
           <StockBadge inStock={product.in_stock} />

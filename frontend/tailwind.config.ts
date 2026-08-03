@@ -24,6 +24,7 @@ const config: Config = {
         accent: {
           DEFAULT: "rgb(var(--accent) / <alpha-value>)",
           hover: "rgb(var(--accent-hover) / <alpha-value>)",
+          alt: "rgb(var(--accent-alt) / <alpha-value>)",
           contrast: "rgb(var(--accent-contrast) / <alpha-value>)",
         },
         edge: "rgb(var(--edge) / <alpha-value>)",
@@ -31,7 +32,18 @@ const config: Config = {
         caution: "rgb(var(--caution) / <alpha-value>)",
       },
       borderRadius: {
-        card: "0.875rem",
+        card: "1.125rem",
+      },
+      // Two shadows, each with a job. `lift` is geometry -- something moved
+      // toward the reader. `glow` is emphasis, and it is tinted with the accent
+      // so it reads as the same system in both themes rather than as a grey
+      // blur on dark and a black blur on light.
+      boxShadow: {
+        lift: "0 1px 2px rgb(0 0 0 / 0.16), 0 18px 40px -22px rgb(0 0 0 / 0.45)",
+        glow: "0 8px 30px -10px rgb(var(--accent) / 0.55)",
+      },
+      letterSpacing: {
+        display: "-0.025em",
       },
       keyframes: {
         "fade-up": {
@@ -41,10 +53,18 @@ const config: Config = {
         shimmer: {
           "100%": { transform: "translateX(100%)" },
         },
+        // The slow wander behind the hero. 18s and a tiny translation, because
+        // anything faster or larger becomes the thing you look at instead of
+        // the product.
+        drift: {
+          "0%, 100%": { transform: "translate3d(0, 0, 0) scale(1)" },
+          "50%": { transform: "translate3d(2%, -3%, 0) scale(1.08)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 220ms ease-out both",
         shimmer: "shimmer 1.6s infinite",
+        drift: "drift 18s ease-in-out infinite",
       },
     },
   },

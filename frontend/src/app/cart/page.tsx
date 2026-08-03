@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
-import { formatPrice, slugHue } from "@/lib/format";
+import { formatPrice, productTint } from "@/lib/format";
 
 export default function CartPage() {
   const { cart, busy, setQuantity, checkout } = useCart();
@@ -18,18 +18,30 @@ export default function CartPage() {
   if (cart.items.length === 0) {
     return (
       <div className="card mx-auto max-w-lg animate-fade-up p-12 text-center">
-        <p className="text-4xl" aria-hidden>
-          🧺
-        </p>
-        <h1 className="mt-4 text-lg font-medium">Your cart is empty.</h1>
-        <p className="mt-1 text-sm text-content-muted">
+        <span
+          aria-hidden
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl
+                     bg-accent/10 text-accent ring-1 ring-accent/20"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-6 w-6"
+          >
+            <path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 8H6M10 21h.01M17 21h.01" />
+          </svg>
+        </span>
+        <h1 className="mt-5 text-xl font-semibold tracking-display">
+          Your cart is empty.
+        </h1>
+        <p className="mt-2 text-sm text-content-muted">
           Items are held in Redis for seven days, so they survive a refresh.
         </p>
-        <Link
-          href="/products"
-          className="mt-5 inline-block rounded-lg bg-accent px-5 py-2.5 text-sm
-                     font-medium text-accent-contrast hover:bg-accent-hover"
-        >
+        <Link href="/products" className="btn-primary mt-6">
           Browse products
         </Link>
       </div>
@@ -37,126 +49,142 @@ export default function CartPage() {
   }
 
   return (
-    <div className="grid animate-fade-up gap-8 lg:grid-cols-[1fr_320px]">
-      <section className="space-y-3">
-        <h1 className="text-xl font-semibold">
-          Cart
-          <span className="ml-2 text-sm font-normal text-content-muted">
-            {cart.item_count} item{cart.item_count === 1 ? "" : "s"}
-          </span>
-        </h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-display sm:text-4xl">Cart</h1>
+        <p className="mt-2 text-sm text-content-muted">
+          {cart.item_count} item{cart.item_count === 1 ? "" : "s"} · held server-side
+          for seven days
+        </p>
+      </div>
 
-        {cart.items.map((item) => {
-          const hue = slugHue(item.slug);
-          return (
-            <div key={item.product_id} className="card flex gap-4 p-3">
-              <Link
-                href={`/products/${item.slug}`}
-                className="h-20 w-20 shrink-0 overflow-hidden rounded-lg"
-                style={{
-                  background: `linear-gradient(135deg,
-                    hsl(${hue} 62% 62%), hsl(${(hue + 48) % 360} 58% 44%))`,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.image_path}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              </Link>
-
-              <div className="flex min-w-0 flex-1 flex-col">
+      <div className="grid animate-fade-up gap-8 lg:grid-cols-[1fr_340px]">
+        <section className="space-y-3">
+          {cart.items.map((item) => {
+            return (
+              <div key={item.product_id} className="card flex gap-4 p-4">
                 <Link
                   href={`/products/${item.slug}`}
-                  className="truncate font-medium hover:text-accent"
+                  className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-surface-sunken"
+                  style={{ backgroundImage: productTint(item.slug) }}
                 >
-                  {item.name}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.image_path}
+                    alt=""
+                    className="h-full w-full object-cover transition duration-500
+                               hover:scale-105"
+                  />
                 </Link>
-                <span className="text-sm text-content-muted">
-                  {formatPrice(item.unit_price_cents)} each
-                </span>
-                {!item.in_stock && (
-                  <span className="mt-1 text-xs text-caution">
-                    Not enough stock for this quantity
-                  </span>
-                )}
 
-                <div className="mt-auto flex items-center gap-3 pt-2">
-                  <div className="flex items-center rounded-lg border border-edge">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <Link
+                    href={`/products/${item.slug}`}
+                    className="truncate font-medium transition hover:text-accent"
+                  >
+                    {item.name}
+                  </Link>
+                  <span className="mt-0.5 text-sm text-content-muted tabular-nums">
+                    {formatPrice(item.unit_price_cents)} each
+                  </span>
+                  {!item.in_stock && (
+                    <span className="mt-1.5 text-xs font-medium text-caution">
+                      Not enough stock for this quantity
+                    </span>
+                  )}
+
+                  <div className="mt-auto flex items-center gap-3 pt-3">
+                    <div className="flex items-center rounded-xl border border-edge">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setQuantity(item.product_id, item.quantity - 1)}
+                        className="px-3 py-1.5 text-content-muted transition
+                                   hover:text-content disabled:opacity-40"
+                        aria-label={`Decrease ${item.name}`}
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm tabular-nums">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy || item.quantity >= 10}
+                        onClick={() => setQuantity(item.product_id, item.quantity + 1)}
+                        className="px-3 py-1.5 text-content-muted transition
+                                   hover:text-content disabled:opacity-40"
+                        aria-label={`Increase ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => setQuantity(item.product_id, item.quantity - 1)}
-                      className="px-2.5 py-1 text-content-muted hover:text-content
+                      onClick={() => setQuantity(item.product_id, 0)}
+                      className="text-xs text-content-faint transition hover:text-caution
                                  disabled:opacity-40"
-                      aria-label={`Decrease ${item.name}`}
                     >
-                      −
-                    </button>
-                    <span className="w-8 text-center text-sm tabular-nums">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={busy || item.quantity >= 10}
-                      onClick={() => setQuantity(item.product_id, item.quantity + 1)}
-                      className="px-2.5 py-1 text-content-muted hover:text-content
-                                 disabled:opacity-40"
-                      aria-label={`Increase ${item.name}`}
-                    >
-                      +
+                      Remove
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setQuantity(item.product_id, 0)}
-                    className="text-xs text-content-faint hover:text-caution
-                               disabled:opacity-40"
-                  >
-                    Remove
-                  </button>
                 </div>
+
+                <span className="shrink-0 self-center text-lg font-semibold tabular-nums tracking-display">
+                  {formatPrice(item.subtotal_cents)}
+                </span>
               </div>
+            );
+          })}
 
-              <span className="shrink-0 self-center font-semibold tabular-nums">
-                {formatPrice(item.subtotal_cents)}
-              </span>
-            </div>
-          );
-        })}
-      </section>
-
-      <aside className="h-fit lg:sticky lg:top-20">
-        <div className="card space-y-4 p-5">
-          <div className="flex items-baseline justify-between">
-            <span className="text-content-muted">Total</span>
-            <span className="text-2xl font-semibold tabular-nums">
-              {formatPrice(cart.total_cents)}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={placeOrder}
-            disabled={busy}
-            className="w-full rounded-lg bg-accent px-5 py-3 font-medium
-                       text-accent-contrast transition hover:bg-accent-hover
-                       disabled:cursor-not-allowed disabled:opacity-50"
+          <Link
+            href="/products"
+            className="inline-block px-1 pt-2 text-sm text-accent hover:underline"
           >
-            {busy ? "Placing order…" : "Place order"}
-          </button>
+            ← Keep shopping
+          </Link>
+        </section>
 
-          {/* Stated plainly rather than mimicking a payment step. A fake card
-              form would demonstrate no platform capability and would make the
-              demo dishonest about what it does. */}
-          <p className="text-xs leading-relaxed text-content-faint">
-            Checkout is mock. It creates a real order in PostgreSQL inside one
-            transaction and decrements stock. No payment is taken or simulated.
-          </p>
-        </div>
-      </aside>
+        <aside className="h-fit lg:sticky lg:top-24">
+          <div className="card p-6">
+            <h2 className="eyebrow">Summary</h2>
+
+            <dl className="mt-4 space-y-2.5 text-sm">
+              <div className="flex items-baseline justify-between">
+                <dt className="text-content-muted">Items</dt>
+                <dd className="tabular-nums">{cart.item_count}</dd>
+              </div>
+              {/* No invented shipping line. There is no carrier, no rate table
+                  and no code that would charge one, so a "Shipping: free" row
+                  here would be the one dishonest thing on the page. */}
+              <div className="flex items-baseline justify-between border-t border-edge pt-3">
+                <dt className="font-medium">Total</dt>
+                <dd className="text-2xl font-semibold tabular-nums tracking-display">
+                  {formatPrice(cart.total_cents)}
+                </dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              onClick={placeOrder}
+              disabled={busy}
+              className="btn-primary mt-6 w-full py-3"
+            >
+              {busy ? "Placing order…" : "Place order"}
+            </button>
+
+            {/* Stated plainly rather than mimicking a payment step. A fake card
+                form would demonstrate no platform capability and would make the
+                demo dishonest about what it does. */}
+            <p className="mt-4 text-xs leading-relaxed text-content-faint">
+              Checkout is mock. It creates a real order in PostgreSQL inside one
+              transaction and decrements stock. No payment is taken or simulated.
+            </p>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

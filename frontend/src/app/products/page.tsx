@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 const SORTS = [
   { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price, low to high" },
-  { value: "price_desc", label: "Price, high to low" },
+  { value: "price_asc", label: "Price ↑" },
+  { value: "price_desc", label: "Price ↓" },
   { value: "name", label: "Name" },
 ];
 
@@ -69,150 +69,204 @@ export default async function ProductsPage({
     )
     .filter((number, index, all) => all.indexOf(number) === index);
 
+  const activeCategory = categories.find(
+    (category) => category.slug === current.category,
+  );
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
-      <aside className="space-y-6">
-        <div>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-muted">
-            Category
-          </h2>
-          <ul className="space-y-1 text-sm">
-            <li>
-              <Link
-                href={withParam(current, "category", undefined)}
-                className={`block rounded-md px-2 py-1 ${
-                  current.category
-                    ? "text-content-muted hover:bg-surface-sunken"
-                    : "bg-surface-sunken font-medium text-accent"
-                }`}
-              >
-                All
-              </Link>
-            </li>
-            {categories.map((category) => (
-              <li key={category.id}>
+    <div className="space-y-8">
+      <div>
+        <nav className="flex items-center gap-2 text-sm text-content-muted">
+          <Link href="/" className="transition hover:text-content">
+            Home
+          </Link>
+          <span aria-hidden className="text-content-faint">
+            /
+          </span>
+          <span className="text-content">
+            {activeCategory ? activeCategory.name : "All products"}
+          </span>
+        </nav>
+        <h1 className="mt-3 text-3xl font-semibold tracking-display sm:text-4xl">
+          {activeCategory ? activeCategory.name : "All products"}
+        </h1>
+        <p className="mt-2 text-sm text-content-muted">
+          {page.total} result{page.total === 1 ? "" : "s"}
+          {current.in_stock && " · in stock only"}
+        </p>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[236px_1fr]">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
+          <div className="card p-4">
+            <h2 className="eyebrow">Category</h2>
+            <ul className="mt-3 space-y-0.5 text-sm">
+              <li>
                 <Link
-                  href={withParam(current, "category", category.slug)}
-                  className={`flex items-center justify-between rounded-md px-2 py-1 ${
-                    current.category === category.slug
-                      ? "bg-surface-sunken font-medium text-accent"
-                      : "text-content-muted hover:bg-surface-sunken"
+                  href={withParam(current, "category", undefined)}
+                  aria-current={current.category ? undefined : "true"}
+                  className={`block rounded-lg px-2.5 py-1.5 transition ${
+                    current.category
+                      ? "text-content-muted hover:bg-surface-sunken hover:text-content"
+                      : "bg-accent/10 font-medium text-accent"
                   }`}
                 >
-                  {category.name}
-                  <span className="text-content-faint">{category.product_count}</span>
+                  All
                 </Link>
               </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-muted">
-            Availability
-          </h2>
-          <Link
-            href={withParam(current, "in_stock", current.in_stock ? undefined : "true")}
-            className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm ${
-              current.in_stock
-                ? "bg-surface-sunken font-medium text-accent"
-                : "text-content-muted hover:bg-surface-sunken"
-            }`}
-          >
-            <span
-              aria-hidden
-              className={`h-3.5 w-3.5 rounded border ${
-                current.in_stock ? "border-accent bg-accent" : "border-edge"
-              }`}
-            />
-            In stock only
-          </Link>
-        </div>
-      </aside>
-
-      <section>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">
-            Products
-            <span className="ml-2 text-sm font-normal text-content-muted">
-              {page.total} result{page.total === 1 ? "" : "s"}
-            </span>
-          </h1>
-          <div className="flex flex-wrap gap-1.5">
-            {SORTS.map((option) => (
-              <Link
-                key={option.value}
-                href={withParam(current, "sort", option.value)}
-                className={`rounded-md border px-2.5 py-1 text-xs transition ${
-                  current.sort === option.value
-                    ? "border-accent text-accent"
-                    : "border-edge text-content-muted hover:text-content"
-                }`}
-              >
-                {option.label}
-              </Link>
-            ))}
+              {categories.map((category) => (
+                <li key={category.id}>
+                  <Link
+                    href={withParam(current, "category", category.slug)}
+                    aria-current={
+                      current.category === category.slug ? "true" : undefined
+                    }
+                    className={`flex items-center justify-between gap-2 rounded-lg
+                                px-2.5 py-1.5 transition ${
+                                  current.category === category.slug
+                                    ? "bg-accent/10 font-medium text-accent"
+                                    : "text-content-muted hover:bg-surface-sunken hover:text-content"
+                                }`}
+                  >
+                    <span className="truncate">{category.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-content-faint">
+                      {category.product_count}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
 
-        {products.items.length === 0 ? (
-          <div className="card p-10 text-center">
-            <p className="font-medium">Nothing matches those filters.</p>
+          <div className="card p-4">
+            <h2 className="eyebrow">Availability</h2>
+            {/* A link styled as a checkbox rather than a real one. The filter
+                state lives in the URL, so it has to be navigable and shareable;
+                a form control would need JavaScript to do the same thing. */}
             <Link
-              href="/products"
-              className="mt-2 inline-block text-sm text-accent hover:underline"
+              href={withParam(current, "in_stock", current.in_stock ? undefined : "true")}
+              className={`mt-3 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5
+                          text-sm transition ${
+                            current.in_stock
+                              ? "bg-accent/10 font-medium text-accent"
+                              : "text-content-muted hover:bg-surface-sunken hover:text-content"
+                          }`}
             >
-              Clear them
+              <span
+                aria-hidden
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded
+                            border text-[10px] font-bold ${
+                              current.in_stock
+                                ? "border-accent bg-accent text-accent-contrast"
+                                : "border-edge"
+                            }`}
+              >
+                {current.in_stock ? "✓" : ""}
+              </span>
+              In stock only
             </Link>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {products.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+        </aside>
 
-        {page.pages > 1 && (
-          <nav className="mt-8 flex items-center justify-center gap-1.5">
-            {page.page > 1 && (
-              <Link
-                href={withParam(current, "page", String(page.page - 1))}
-                className="rounded-md border border-edge px-3 py-1.5 text-sm
-                           hover:border-accent hover:text-accent"
-              >
-                ←
-              </Link>
-            )}
-            {pageNumbers.map((number, index) => (
-              <span key={number} className="flex items-center gap-1.5">
-                {index > 0 && number - pageNumbers[index - 1] > 1 && (
-                  <span className="text-content-faint">…</span>
-                )}
+        <section>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-content-muted">
+              Page {page.page} of {page.pages || 1}
+            </p>
+            {/* A segmented control: one bordered group rather than four loose
+                pills, so the four options read as a single choice. */}
+            <div
+              role="group"
+              aria-label="Sort"
+              className="flex flex-wrap gap-1 rounded-xl border border-edge
+                         bg-surface-raised p-1"
+            >
+              {SORTS.map((option) => (
                 <Link
-                  href={withParam(current, "page", String(number))}
-                  className={`rounded-md border px-3 py-1.5 text-sm ${
-                    number === page.page
-                      ? "border-accent bg-accent text-accent-contrast"
-                      : "border-edge hover:border-accent hover:text-accent"
+                  key={option.value}
+                  href={withParam(current, "sort", option.value)}
+                  aria-current={current.sort === option.value ? "true" : undefined}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    current.sort === option.value
+                      ? "bg-accent text-accent-contrast"
+                      : "text-content-muted hover:bg-surface-sunken hover:text-content"
                   }`}
                 >
-                  {number}
+                  {option.label}
                 </Link>
-              </span>
-            ))}
-            {page.page < page.pages && (
-              <Link
-                href={withParam(current, "page", String(page.page + 1))}
-                className="rounded-md border border-edge px-3 py-1.5 text-sm
-                           hover:border-accent hover:text-accent"
-              >
-                →
+              ))}
+            </div>
+          </div>
+
+          {products.items.length === 0 ? (
+            <div className="card p-14 text-center">
+              <p className="font-medium">Nothing matches those filters.</p>
+              <p className="mt-1 text-sm text-content-muted">
+                The catalogue has {categories.reduce((sum, c) => sum + c.product_count, 0)}{" "}
+                products in total.
+              </p>
+              <Link href="/products" className="btn-primary mt-5">
+                Clear the filters
               </Link>
-            )}
-          </nav>
-        )}
-      </section>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              {products.items.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+
+          {page.pages > 1 && (
+            <nav
+              aria-label="Pagination"
+              className="mt-10 flex items-center justify-center gap-1.5"
+            >
+              {page.page > 1 && (
+                <Link
+                  href={withParam(current, "page", String(page.page - 1))}
+                  aria-label="Previous page"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border
+                             border-edge text-sm transition hover:border-accent/50
+                             hover:text-accent"
+                >
+                  ←
+                </Link>
+              )}
+              {pageNumbers.map((number, index) => (
+                <span key={number} className="flex items-center gap-1.5">
+                  {index > 0 && number - pageNumbers[index - 1] > 1 && (
+                    <span className="px-1 text-content-faint">…</span>
+                  )}
+                  <Link
+                    href={withParam(current, "page", String(number))}
+                    aria-current={number === page.page ? "page" : undefined}
+                    className={`flex h-9 min-w-9 items-center justify-center rounded-lg
+                                border px-2 text-sm tabular-nums transition ${
+                                  number === page.page
+                                    ? "border-accent bg-accent font-medium text-accent-contrast"
+                                    : "border-edge hover:border-accent/50 hover:text-accent"
+                                }`}
+                  >
+                    {number}
+                  </Link>
+                </span>
+              ))}
+              {page.page < page.pages && (
+                <Link
+                  href={withParam(current, "page", String(page.page + 1))}
+                  aria-label="Next page"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border
+                             border-edge text-sm transition hover:border-accent/50
+                             hover:text-accent"
+                >
+                  →
+                </Link>
+              )}
+            </nav>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import Link from "next/link";
-
 import { Hero } from "@/components/Hero";
-import { CategoryTiles, EditorialBand, PromiseStrip } from "@/components/Marketing";
+import {
+  CategoryTiles,
+  EditorialBand,
+  PromiseStrip,
+  SectionHeading,
+} from "@/components/Marketing";
 import { ProductCard } from "@/components/ProductCard";
 import { getCategories, getProducts } from "@/lib/api";
 
@@ -21,7 +24,7 @@ export default async function Home() {
   ]);
 
   return (
-    <div className="space-y-14">
+    <div className="space-y-16 sm:space-y-20">
       <Hero />
 
       <PromiseStrip />
@@ -29,17 +32,15 @@ export default async function Home() {
       <CategoryTiles categories={categories} />
 
       <section>
-        <div className="mb-4 flex items-baseline justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">New arrivals</h2>
-            <p className="text-sm text-content-muted">
-              The most recent additions across every category.
-            </p>
-          </div>
-          <Link href="/products" className="text-sm text-accent hover:underline">
-            All {newest.page.total} products →
-          </Link>
-        </div>
+        <SectionHeading
+          eyebrow="Just landed"
+          title="New arrivals"
+          body="The most recent additions across every category."
+          action={{
+            label: `All ${newest.page.total} products`,
+            href: "/products",
+          }}
+        />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {newest.items.map((product) => (
             <ProductCard key={product.id} product={product} />
@@ -50,12 +51,12 @@ export default async function Home() {
       <EditorialBand />
 
       <section>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">The considered end</h2>
-          <p className="text-sm text-content-muted">
-            Where the materials cost more and it shows.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="The upper shelf"
+          title="The considered end"
+          body="Where the materials cost more and it shows."
+          action={{ label: "Sort by price", href: "/products?sort=price_desc" }}
+        />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {popular.items.map((product) => (
             <ProductCard key={product.id} product={product} />

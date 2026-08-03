@@ -104,3 +104,7 @@ bin/
 *.bak
 *.tmp
 *.orig
+
+# SVG sources for the committed artwork. Regenerate with
+# scripts/generate-product-art.py; the WebP output is what ships.
+.art-build/
