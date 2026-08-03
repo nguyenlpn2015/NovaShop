@@ -108,12 +108,34 @@ duplicate Traefik scrape.
 
 ### Evidence against
 
-**Application test coverage is thin.** Nine test functions across two backend files
-(`test_health.py`, `test_metrics.py`). **Zero frontend tests and no test framework installed.**
-No coverage measurement in CI.
+**Application test coverage is thin, though less thin than this section said until
+2026-08-04.** The previous wording — "nine test functions across two backend files", "zero
+frontend tests and no test framework installed" — described a state two releases old and
+contradicted the README on the same repository. That drift is recorded here rather than
+quietly overwritten, because a stale self-audit is worse than none: this is the document a
+reader trusts to be unflattering.
 
-The nine tests are well-chosen — one caught the route-label bug where every request was
-labelled `unmatched` — but nine is nine.
+Measured now, and the commands are below so the next reader does not have to trust it:
+
+| | Count |
+|---|---|
+| Backend test files | 5 — `test_catalogue.py`, `test_db.py`, `test_health.py`, `test_metrics.py`, `test_shop.py` |
+| Backend test functions | 36, collected as 53 cases via `parametrize` (52 pass, 1 skipped) |
+| Frontend test files | 2 — `Hero.test.tsx`, `ProductCard.test.tsx` |
+| Frontend tests | 17 |
+
+```sh
+cd backend && pytest --collect-only | tail -1
+cd frontend && npm test
+```
+
+The tests are well-chosen rather than numerous — one caught the route-label bug where every
+request was labelled `unmatched`, one caught the `/products/<file>.webp` route collision that
+made every product image silently fall back to a gradient. But 53 cases across a backend with
+five routers is still thin, and the shape of the gap matters more than the count: **the
+checkout transaction, the only write path and the only place a lock is taken, has no
+concurrency test.** Nothing in the suite would catch a regression in the `FOR UPDATE`
+behaviour that stops two customers buying the same last item.
 
 **No integration test.** Nothing exercises the application against a real PostgreSQL and Redis
 in CI, so the `/ready` behaviour that gates every production pod is verified only by hand.
@@ -126,8 +148,20 @@ not measurement.
 
 ### To reach 4
 
-Add a frontend test framework and a meaningful first suite; add an integration test with
-service containers; measure coverage in CI and publish the number.
+Two of the three items this section previously listed are now done: a frontend test framework
+with a real suite, and **coverage measured and published in CI** — reported on every run, with
+no `fail_under` threshold, because a threshold on a suite this size invites tests written to
+move a percentage rather than to catch a defect.
+
+What is left, in the order that would actually raise the score:
+
+1. **A concurrency test for checkout.** Two simultaneous orders for the last unit, asserting
+   one succeeds and one receives a 409. This is the highest-value missing test in the
+   repository — it is the only place correctness depends on a database lock.
+2. **An integration test with service containers**, so the `/ready` behaviour that gates every
+   production pod is verified by CI rather than by hand.
+3. **Load or soak testing.** Latency and error-rate alert thresholds were chosen by reasoning,
+   not measurement, and that is still true.
 
 ---
 

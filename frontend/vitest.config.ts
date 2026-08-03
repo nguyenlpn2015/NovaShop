@@ -14,5 +14,26 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      // text for the CI log, json-summary so the workflow can publish one
+      // number without parsing a table, lcov for any external viewer.
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        // Route files are exercised by the running application, not by unit
+        // tests. Counting them would report a low number that says nothing
+        // about the components the tests do cover.
+        "src/app/**/layout.tsx",
+        "src/app/**/page.tsx",
+        "src/app/**/loading.tsx",
+        "src/app/**/route.ts",
+      ],
+      // No thresholds. The number is published, not enforced -- a threshold on
+      // a suite this size invites tests written to move a percentage rather
+      // than to catch a defect.
+    },
   },
 });

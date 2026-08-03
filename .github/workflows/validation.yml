@@ -74,8 +74,27 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
-      - name: Run backend tests
-        run: pytest
+      # Coverage is measured and published, not enforced. docs/AUDIT.md scored
+      # Reliability 3/5 partly on "no coverage measurement in CI", and an
+      # unmeasured suite is one whose gaps are argued about rather than read.
+      #
+      # There is no --cov-fail-under on purpose. A threshold on a suite this
+      # size invites tests written to move a percentage rather than to catch a
+      # defect, and it would turn a reporting step into a release blocker for a
+      # number nobody has agreed on yet.
+      - name: Run backend tests with coverage
+        run: pytest --cov --cov-report=term-missing --cov-report=json:coverage.json
+
+      - name: Publish backend coverage
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          if [ ! -f coverage.json ]; then
+            echo "No coverage report produced." >>"${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          percent=$(python -c "import json;print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.1f}\")")
+          printf '### Backend coverage: **%s%%**\n' "${percent}" >>"${GITHUB_STEP_SUMMARY}"
 
   frontend:
     name: Frontend
@@ -109,8 +128,23 @@ jobs:
       # Added when the frontend gained behaviour worth asserting. Until then
       # this job type-checked and built code that nothing exercised, and the
       # audit recorded "0 frontend tests" as the largest single gap.
-      - name: Run frontend tests
-        run: npm test
+      #
+      # Reported, not enforced, for the same reason as the backend: see the
+      # comment on the backend coverage step.
+      - name: Run frontend tests with coverage
+        run: npm run test:coverage
+
+      - name: Publish frontend coverage
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          summary=coverage/coverage-summary.json
+          if [ ! -f "${summary}" ]; then
+            echo "No coverage report produced." >>"${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          percent=$(node -e "process.stdout.write(String(require('./${summary}').total.lines.pct))")
+          printf '### Frontend coverage: **%s%% of lines**\n' "${percent}" >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Build frontend
         run: npm run build

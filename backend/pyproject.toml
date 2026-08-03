@@ -36,6 +36,7 @@ dev = [
   "httpx>=0.28,<1.0",
   "pytest>=8.3,<9.0",
   "pytest-asyncio>=0.25,<1.0",
+  "pytest-cov>=6.0,<8.0",
   "ruff>=0.9,<1.0",
 ]
 
@@ -43,8 +44,34 @@ dev = [
 include = ["app*"]
 
 [tool.pytest.ini_options]
+# Coverage is deliberately not in addopts. Putting --cov here would make every
+# local `pytest` invocation require pytest-cov, so a contributor with an older
+# virtualenv gets an unrecognised-argument error instead of a test run. CI asks
+# for coverage explicitly; see .github/workflows/validation.yml.
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+  # Import-time wiring with no branching worth measuring: covering it would
+  # raise the number without telling anyone anything.
+  "app/__init__.py",
+  "app/db/seed.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# No fail_under. The number is published, not enforced. A threshold invites
+# tests written to move a percentage rather than to catch a defect, and this
+# suite is small enough that one file can swing it several points.
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
 
 [tool.ruff]
 line-length = 88
