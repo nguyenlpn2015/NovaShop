@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    The favicon. Served at /icon.svg by the App Router file convention, which
+    also emits the <link rel="icon" type="image/svg+xml"> tag.
+
+    This is a deliberately simplified version of the mark in
+    src/components/Logo.tsx, not a copy of it. At 16x16 the full mark turns to
+    mush: a 1.5px inner hairline lands on a third of a pixel, the radial flare
+    becomes a grey smudge, and the star merges into the stem it sits on. So the
+    hairline and the flare are gone, the stroke is thicker, the star is larger
+    and pulled clear of the stem, and the corner radius is tightened because a
+    17/64 radius reads as a circle once the square is 16px wide.
+
+    The gradient stops are the same three colours as the logo, so the two read
+    as the same brand at any size.
+  -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="52%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="13" fill="url(#plate)"/>
+
+  <!-- Left stem, rising diagonal, right stem. One path so the renderer mitres
+       the joins. 7.5 wide rather than 5.5: at 16px a 5.5/64 stroke is under a
+       pixel and antialiases into the plate. -->
+  <path d="M18 47 L18 20 L44 42 L44 22"
+        stroke="#ffffff" stroke-width="7.5"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- The nova. Larger and higher than the logo's, so it survives downscaling
+       as a distinct dot instead of thickening the end of the stem. -->
+  <circle cx="44" cy="17" r="6" fill="#ffffff"/>
+</svg>
