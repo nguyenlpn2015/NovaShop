@@ -88,6 +88,44 @@ async function connect(wsUrl) {
   };
 }
 
+/**
+ * Wrap a PNG in an ICO container.
+ *
+ * `/favicon.ico` is requested by every browser whether a page asks for it or
+ * not, and on this site it returned 404 -- which is why tabs showed a blank
+ * icon while `metadata.icons` pointed at a perfectly good WebP.
+ *
+ * Written by hand rather than with an image library because ICO is a six-byte
+ * header, a sixteen-byte directory entry, and a payload; since Windows Vista
+ * that payload may be a PNG verbatim. Adding Pillow as a dependency to
+ * concatenate 22 bytes would be the larger change.
+ *
+ * Layout: ICONDIR{reserved,type=1,count} then ICONDIRENTRY{w,h,colours,
+ * reserved,planes,bpp,bytes,offset}. Width and height are single bytes, and 0
+ * means 256 -- which is why anything above 256 cannot be expressed here.
+ */
+function wrapPngInIco(png, size) {
+  if (size > 256) throw new Error(`ICO cannot hold ${size}px; 256 is the maximum`);
+  const dimension = size === 256 ? 0 : size;
+
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // 1 = icon
+  header.writeUInt16LE(1, 4); // one image
+
+  const entry = Buffer.alloc(16);
+  entry.writeUInt8(dimension, 0);
+  entry.writeUInt8(dimension, 1);
+  entry.writeUInt8(0, 2); // palette size, 0 for truecolour
+  entry.writeUInt8(0, 3); // reserved
+  entry.writeUInt16LE(1, 4); // colour planes
+  entry.writeUInt16LE(32, 6); // bits per pixel
+  entry.writeUInt32LE(png.length, 8);
+  entry.writeUInt32LE(header.length + entry.length, 12);
+
+  return Buffer.concat([header, entry, png]);
+}
+
 const jobs = JSON.parse(readFileSync(MANIFEST, "utf8"));
 const chrome = findChrome();
 const profile = resolve(tmpdir(), "novashop-art-profile");
@@ -198,13 +236,25 @@ for (const job of jobs) {
   });
   await sleep(40);
 
+  // PNG for the icon family, WebP for everything else. Favicons have to be PNG
+  // or ICO: no browser accepts a WebP inside an ICO container, and Safari has
+  // never reliably taken a WebP favicon at all.
+  const format = job.format ?? "webp";
   const shot = await session.send("Page.captureScreenshot", {
-    format: "webp",
-    quality: QUALITY,
+    format,
+    // quality applies to lossy formats only; PNG ignores it, and passing it
+    // alongside format:"png" is accepted rather than rejected.
+    ...(format === "webp" ? { quality: QUALITY } : {}),
   });
 
   mkdirSync(dirname(job.out), { recursive: true });
-  writeFileSync(job.out, Buffer.from(shot.data, "base64"));
+  const bytes = Buffer.from(shot.data, "base64");
+
+  if (job.ico) {
+    writeFileSync(job.out, wrapPngInIco(bytes, job.width));
+  } else {
+    writeFileSync(job.out, bytes);
+  }
   written += 1;
 }
 

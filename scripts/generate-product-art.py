@@ -317,14 +317,25 @@ def main() -> int:
     # having to agree about it in two places.
     jobs: list[dict[str, object]] = []
 
-    def emit(svg: str, name: str, width: int, height: int, transparent: bool) -> None:
+    def emit(
+        svg: str,
+        name: str,
+        width: int,
+        height: int,
+        transparent: bool,
+        out: Path | None = None,
+        fmt: str = "webp",
+        ico: bool = False,
+    ) -> None:
         source = BUILD / f"{name}.svg"
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_text(svg, encoding="utf-8")
         jobs.append(
             {
                 "svg": str(source).replace("\\", "/"),
-                "out": str(OUT / f"{name}.webp").replace("\\", "/"),
+                "out": str(out or OUT / f"{name}.webp").replace("\\", "/"),
+                "format": fmt,
+                "ico": ico,
                 "width": width,
                 "height": height,
                 "transparent": transparent,
@@ -346,6 +357,33 @@ def main() -> int:
     emit(LOGO, "brand/logo", 512, 512, transparent=False)
     for index in range(3):
         emit(banner_svg(index), f"brand/banner-{index:02d}", 1600, 700, transparent=False)
+
+    # The favicon family is derived from frontend/src/app/icon.svg rather than
+    # from LOGO above. That file is the source of truth for the icon, because a
+    # favicon is not a small logo: it is a redrawn mark with thicker strokes and
+    # fewer parts, and keeping the geometry in one place is what stops the SVG
+    # a browser reads and the ICO it falls back to from drifting apart.
+    #
+    # Only favicon.ico is generated. /favicon.ico is requested by every browser
+    # unprompted and was returning 404, which is the whole defect. An
+    # apple-touch-icon is deliberately not produced: iOS ignores alpha and
+    # applies its own corner mask, so it needs a full-bleed square rather than
+    # this rounded plate, and shipping the rounded one would put a white
+    # margin around it on a home screen.
+    icon_source = Path("frontend/src/app/icon.svg")
+    if icon_source.is_file():
+        emit(
+            icon_source.read_text(encoding="utf-8"),
+            "brand/favicon",
+            64,
+            64,
+            transparent=True,
+            out=Path("frontend/src/app/favicon.ico"),
+            fmt="png",
+            ico=True,
+        )
+    else:
+        print(f"WARNING: {icon_source} is missing; favicon.ico not generated", file=sys.stderr)
 
     manifest = BUILD / "manifest.json"
     manifest.write_text(json.dumps(jobs, indent=2), encoding="utf-8")

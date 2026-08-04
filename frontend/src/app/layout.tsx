@@ -16,7 +16,12 @@ export const metadata: Metadata = {
   },
   description:
     "Eight categories of well-made everyday goods. A working storefront on a platform built to be read: GitOps delivery, pre-merge guardrails, and documented recovery.",
-  icons: { icon: "/img/brand/logo.webp" },
+  // No `icons` here on purpose. icon.svg and favicon.ico sit beside this file
+  // and the App Router's file convention emits their link tags, which keeps one
+  // source of truth. Declaring an icon here as well previously pointed the tab
+  // at /img/brand/logo.webp -- a WebP that Chrome accepts, Safari has never
+  // reliably accepted, and that left /favicon.ico returning 404 for every
+  // browser that asks for it without being told to.
   openGraph: {
     title: "NovaShop",
     description: "Everyday goods, well made.",
