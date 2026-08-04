@@ -58,8 +58,15 @@ or a synced manifest that never takes effect. The variable validation refuses an
 
 ## Configuration
 
+This layer does **not** read an SSH private key. It declares `ssh_private_key` so every
+node-facing layer takes the same inputs, but nothing here consumes it — the only layer that
+does is [`6-gitops`](../6-gitops/README.md), whose `main.tf` passes it to a connection block.
+
+The instruction to export it used to be here, and it was wrong: it taught an operator to put a
+private key into the environment of a process that never reads it. A habit formed for no
+benefit is still a habit.
+
 ```sh
-export TF_VAR_ssh_private_key="$(cat ~/.ssh/novashop)"
 cp ../../examples/0-node.tfvars.example terraform.tfvars
 
 cp ../../examples/backend-local-override.tf.example backend_override.tf
