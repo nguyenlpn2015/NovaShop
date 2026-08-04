@@ -42,9 +42,45 @@ alertmanager:
       prometheus.io/port: "9093"
       prometheus.io/path: /metrics
 
+  # The SMTP password, mounted from a Secret created outside Git.
+  #
+  # ADR 010 keeps credentials out of this repository, and Alertmanager's
+  # smtp_auth_password_file exists precisely so the password never has to appear
+  # in a values file. The Secret's key becomes the filename under mountPath, so
+  # key `password` is read as /etc/alertmanager-smtp/password.
+  #
+  # THIS MOUNT IS A HARD DEPENDENCY. If the Secret is absent the pod stays in
+  # ContainerCreating -- kubelet cannot mount a Secret that does not exist -- so
+  # Alertmanager must not be rolled out before it is created. The command is in
+  # docs/observability/alerts.md.
+  extraSecretMounts:
+    - name: smtp
+      mountPath: /etc/alertmanager-smtp
+      secretName: novashop-alertmanager-smtp
+      readOnly: true
+
   config:
     global:
       resolve_timeout: 5m
+
+      # Gmail as the relay, because it is the mailbox that exists rather than
+      # the one an ideal design would pick. Two constraints come with it:
+      #
+      #  - Port 587 with STARTTLS. 465 is implicit TLS and Alertmanager's
+      #    smtp_smarthost does not negotiate it; the connection would hang
+      #    rather than fail loudly.
+      #  - smtp_from must match smtp_auth_username. Gmail rewrites or rejects a
+      #    From it did not authenticate, and a rejected message is dropped with
+      #    only a line in the Alertmanager log to say so.
+      #
+      # The password is a Google App Password, not the account password. Google
+      # has refused plain account passwords for SMTP since 2022, and the failure
+      # is a 535 at send time -- long after any config check has passed.
+      smtp_smarthost: smtp.gmail.com:587
+      smtp_from: nguyenlpn2015@gmail.com
+      smtp_auth_username: nguyenlpn2015@gmail.com
+      smtp_auth_password_file: /etc/alertmanager-smtp/password
+      smtp_require_tls: true
 
     route:
       # Grouping by alertname and environment means one notification for a fault
@@ -55,18 +91,37 @@ alertmanager:
       # Twelve hours between repeats. Anything shorter trains people to mute the
       # channel, which is worse than not alerting at all.
       repeat_interval: 12h
-      receiver: default
+      receiver: email
 
     receivers:
-      # No destination is configured. Delivering to Slack, email, or PagerDuty
-      # needs a credential this repository does not hold and a decision about
-      # who is on call, neither of which belongs in an unreviewed default.
+      # Email to the on-call mailbox. This closes the gap the README and
+      # docs/AUDIT.md both recorded: fourteen alerts, each with a runbook, and
+      # nowhere for any of them to go. An alerting system that cannot notify is
+      # a monitoring system.
       #
-      # Alerts remain visible and queryable in the Alertmanager UI and in
-      # ALERTS{} in Prometheus, so the rules are useful before routing exists.
-      # Adding a receiver is a values change plus a Secret; see
-      # docs/observability/alerts.md.
-      - name: default
+      # One receiver, not a severity split. A second route with a shorter
+      # repeat_interval for criticals is the obvious next step and is
+      # deliberately not here yet: there is one recipient and no rota, so
+      # "page faster" would mean the same mailbox at a higher rate, which is how
+      # a channel gets muted.
+      - name: email
+        email_configs:
+          - to: nguyen.lephuoc@smartdev.com
+            # Resolved notifications included. Without them the mailbox records
+            # that something broke and never that it recovered, and the reader
+            # has to open Alertmanager to find out -- which defeats the point of
+            # sending mail at all.
+            send_resolved: true
+            headers:
+              # Enough in the subject line to triage without opening anything:
+              # state, how many are firing, which alert, which namespace.
+              Subject: >-
+                [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+                {{ .CommonLabels.alertname }}
+                {{ if .CommonLabels.namespace }}({{ .CommonLabels.namespace }}){{ end }}
+            # The default body already renders every annotation, which is where
+            # runbook_url lives -- so each of the fourteen alerts arrives with a
+            # link to its own runbook and no template here has to know about it.
 
     inhibit_rules:
       # A node that is down will also breach CPU, memory, and disk thresholds.

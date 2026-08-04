@@ -69,49 +69,90 @@ Two inhibition rules suppress derived noise:
   also breaches CPU, memory, and disk. Reporting all four turns one fault into
   four pages, and the three extra ones point at the wrong problem.
 
-## Notification routing is not configured
+## Notification routing
 
-Alertmanager has a single receiver named `default` with no destination.
+Alertmanager routes every alert to one receiver, `email`, which delivers to the
+on-call mailbox `nguyen.lephuoc@smartdev.com` from `nguyenlpn2015@gmail.com`.
 
-This is deliberate rather than unfinished. Routing to Slack, email, or PagerDuty
-needs a credential this repository does not hold and a decision about who is on
-call, and neither belongs in a default that nobody reviewed. Alerts still
-evaluate, still appear in the Alertmanager UI, and are still queryable as
-`ALERTS{alertstate="firing"}` in Prometheus and on the Grafana dashboards, so the
-rules are useful before delivery exists.
+This closes the gap the README and [AUDIT.md](../AUDIT.md) both recorded: fourteen
+alerts, each with a runbook, and nowhere for any of them to go. An alerting
+system that cannot notify is a monitoring system.
 
-Adding a destination is a values change plus a Secret, in the same pattern as the
-Grafana admin credential:
+`send_resolved` is on. Without it the mailbox records that something broke and
+never that it recovered, so the reader has to open Alertmanager to find out —
+which defeats the point of sending mail.
+
+The message body is Alertmanager's default, which renders every annotation. That
+means `runbook_url` arrives with the alert without any template here having to
+know about it, and the link is available at the moment it is most useful rather
+than after someone has gone looking for the right document.
+
+### The credential is not in Git
+
+The SMTP password is read from a file that a Secret provides, using
+Alertmanager's `smtp_auth_password_file`. Same pattern as the Grafana admin
+credential, and the reason is the same: ADR 010 keeps credentials out of this
+repository.
+
+**The Secret must exist before Alertmanager is rolled out.** kubelet cannot mount
+a Secret that does not exist, so the pod would sit in `ContainerCreating`
+indefinitely — taking down a component that currently works.
 
 ```sh
-# 1. Create the Secret outside Git, as with novashop-grafana-admin.
-kubectl -n observability create secret generic novashop-alertmanager-slack \
-  --from-literal=webhook-url='https://hooks.slack.com/services/...'
+# A Google App Password, NOT the account password. Google has refused plain
+# account passwords for SMTP since 2022, and the failure is a 535 at send time,
+# long after every config check has passed. Generate one at
+# https://myaccount.google.com/apppasswords (requires 2-Step Verification).
+kubectl -n observability create secret generic novashop-alertmanager-smtp \
+  --from-literal=password='<16-character app password, no spaces>'
 ```
 
-```yaml
-# 2. In alerting-values.yaml, mount it and reference the file.
-alertmanager:
-  extraSecretMounts:
-    - name: slack
-      secretName: novashop-alertmanager-slack
-      mountPath: /etc/alertmanager/secrets
-      readOnly: true
-  config:
-    receivers:
-      - name: default
-        slack_configs:
-          - api_url_file: /etc/alertmanager/secrets/webhook-url
-            channel: "#novashop-alerts"
-            title: '{{ .CommonLabels.alertname }}'
-            text: '{{ range .Alerts }}{{ .Annotations.summary }}
-              <{{ .Annotations.runbook_url }}|runbook>
-              {{ end }}'
+The key name matters: `extraSecretMounts` mounts the whole Secret at
+`/etc/alertmanager-smtp`, so the key becomes the filename, and
+`smtp_auth_password_file` points at `/etc/alertmanager-smtp/password`.
+
+### Why Gmail forces two specific settings
+
+**Port 587, not 465.** 465 is implicit TLS and `smtp_smarthost` does not
+negotiate it — the connection hangs rather than failing loudly.
+
+**`smtp_from` must equal `smtp_auth_username`.** Gmail rewrites or rejects a
+`From` it did not authenticate, and a rejected message is dropped with only a
+line in the Alertmanager log to record it.
+
+### One receiver, not a severity split
+
+A second route with a shorter `repeat_interval` for criticals is the obvious next
+step and is deliberately absent. There is one recipient and no rota, so "page
+faster" would mean the same mailbox at a higher rate — which is how a channel
+gets muted, and a muted channel is worse than no channel.
+
+### Confirming delivery actually works
+
+A config that parses is not a config that sends. After the Secret exists and the
+rollout completes:
+
+```sh
+# 1. The pod mounted the Secret and started.
+kubectl -n observability get pod -l app.kubernetes.io/name=alertmanager
+
+# 2. Alertmanager loaded the config it was given.
+kubectl -n observability port-forward svc/novashop-prometheus-alertmanager 9093:9093
+curl -s localhost:9093/api/v2/status | python3 -c "import json,sys;print(json.load(sys.stdin)['config']['original'][:400])"
+
+# 3. Send a synthetic alert and watch for it in the mailbox.
+curl -s -XPOST localhost:9093/api/v2/alerts -H 'content-type: application/json' -d '[{
+  "labels": {"alertname": "RoutingSmokeTest", "severity": "warning", "namespace": "observability"},
+  "annotations": {"summary": "Synthetic alert confirming email delivery"}
+}]'
+
+# 4. If nothing arrives, the reason is in the log -- a 535 means the password is
+#    wrong or is not an App Password.
+kubectl -n observability logs -l app.kubernetes.io/name=alertmanager --tail=50 | grep -i "notify\|smtp\|error"
 ```
 
-The `runbook_url` is included in the message body on purpose: the link is most
-useful at the moment the notification arrives, not after someone has found the
-right document.
+Step 3 is the only step that proves the path end to end. Steps 1 and 2 prove
+Alertmanager is happy, which is not the same claim.
 
 ## Verification
 
