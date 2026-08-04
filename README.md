@@ -170,7 +170,7 @@ Saying no is part of the design. Each has a recorded reason.
 | A tracing **backend** — not the instrumentation | **The instrumentation ships and is dormant.** [`tracing.py`](backend/app/observability/tracing.py) wires OpenTelemetry across the three hops that matter — inbound HTTP, PostgreSQL, Redis — and stays off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set, because an OTLP exporter retries and a collector that does not exist yet produces error storms in every replica and no traces. What is absent is Tempo. Two of the three conditions [ADR 011](adr/011-distributed-tracing.md) set for revisiting are now met — checkout spans Redis and PostgreSQL, and every page is a two-service call — but the node is at ~150% committed memory and Tempo would displace observability that is already working. Setting one environment variable turns tracing on with no code change |
 | High availability | One node. Every document says so rather than implying redundancy. |
 | Service mesh, Kyverno, Vault | Pod Security Admission and RBAC already cover what these would add here |
-| Alert routing | Needs a credential this repository does not hold and an on-call decision |
+| Alert routing — **configured, awaiting its credential** | Alertmanager now routes all fourteen alerts to an on-call mailbox by email, with `send_resolved` on so recovery is reported too. The SMTP password is read from a Secret created outside Git, and **that Secret does not exist yet** — so this is written and reviewed but not yet delivering. The Secret must exist before the rollout, because a pod cannot mount a Secret that is absent. [Procedure](docs/observability/alerts.md#the-credential-is-not-in-git) |
 
 ## Honest assessment
 
