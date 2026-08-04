@@ -54,8 +54,15 @@ Take a backup first, and re-run the observability gate afterwards. The procedure
 
 ## Configuration
 
+This layer does **not** read an SSH private key, and does not read `node_user` either. Both are
+declared so every node-facing layer takes the same inputs; neither is consumed here. The only
+layer that consumes `ssh_private_key` is [`6-gitops`](../6-gitops/README.md), whose `main.tf`
+passes it to a connection block.
+
+The instruction to export it used to be here, and it was wrong: it taught an operator to put a
+private key into the environment of a process that never reads it.
+
 ```sh
-export TF_VAR_ssh_private_key="$(cat ~/.ssh/novashop)"
 cp ../../examples/2-k3s.tfvars.example terraform.tfvars
 
 cp ../../examples/backend-local-override.tf.example backend_override.tf
