@@ -264,7 +264,7 @@ jobs:
       # land the resources, not to relax the rule. When the count reaches zero this should
       # become --minimum-failure-severity=warning.
       - name: Set up tflint
-        uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+        uses: terraform-linters/setup-tflint@6e1e0642c0289bd619021bf6b34e3c08ed1e005a # v6.3.0
         with:
           tflint_version: v0.55.0
 
