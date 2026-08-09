@@ -9,17 +9,51 @@ For component design see [Observability Flow](../architecture/observability-flow
 
 ## Getting access
 
-Nothing is published. Access is by port-forward, because publishing Grafana needs a DNS
-record, a certificate, and an authentication decision that has not been made.
+Grafana is published at **https://grafana.novashop.smartdev.vn**, behind two independent
+layers: Traefik basic auth at the edge, then Grafana's own admin login. Anonymous access
+and sign-up are off, so neither layer alone gets you in.
+
+Both credentials live in Secrets created outside Git — `novashop-grafana-basic-auth` for
+the edge, `novashop-grafana-admin` for Grafana itself. See
+[Publishing Grafana](#publishing-grafana) for how they are created.
+
+Prometheus, Alertmanager and Loki are **not** published, and should not be. They have no
+authentication of their own, so an edge credential would be the only thing between the
+internet and every metric and log line on the platform. Reach them by port-forward:
 
 ```sh
-kubectl -n observability port-forward svc/novashop-grafana 3000:80
 kubectl -n observability port-forward svc/novashop-prometheus-server 9090:80
 kubectl -n observability port-forward svc/novashop-prometheus-alertmanager 9093:9093
 kubectl -n observability port-forward svc/novashop-loki 3100:3100
 ```
 
-Grafana credentials are in the `novashop-grafana-admin` Secret, created outside Git.
+Grafana can still be port-forwarded when the edge is in the way — note the local port is
+3001, because `docker-compose.yml` publishes the frontend on 3000 and the two collide on
+any machine running both:
+
+```sh
+kubectl -n observability port-forward svc/novashop-grafana 3001:80
+```
+
+### Publishing Grafana
+
+Basic auth is a deliberate floor for a demo platform, not a recommendation. It sends a
+reusable credential on every request, and has no lockout, no MFA, and no per-user audit
+trail. A platform holding real customer data wants OIDC, which replaces the edge
+middleware rather than extending it.
+
+The htpasswd Secret is never committed — a bcrypt hash in a public repository is an
+offline cracking target, not a secret:
+
+```sh
+htpasswd -nbB admin 'CHOOSE_A_STRONG_PASSWORD' > /tmp/grafana-users
+kubectl -n observability create secret generic novashop-grafana-basic-auth \
+  --from-file=users=/tmp/grafana-users
+shred -u /tmp/grafana-users
+```
+
+Traefik expects the key `users`. If the Secret is missing, Traefik fails the router closed
+and returns 500 — it does not serve Grafana unauthenticated.
 
 ## The first question: is it healthy, or is it not collecting?
 

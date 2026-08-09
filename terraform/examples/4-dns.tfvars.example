@@ -8,7 +8,7 @@ zone_name          = "smartdev.vn"
 # The FortiGate DNATs 80 and 443 from here to the node.
 site_public_ip = "203.0.113.10"
 
-# All four resolve to the same address; separation is by Host header at Traefik.
+# All five resolve to the same address; separation is by Host header at Traefik.
 #
 # acme_required marks names that must answer HTTP-01 on port 80. It drives the
 # acme_reachable_fqdns output, which verification asserts against.
@@ -27,6 +27,14 @@ records = {
   }
   "dev.novashop" = {
     comment       = "Development"
+    acme_required = true
+  }
+  # Grafana, behind Traefik basic auth. acme_required because its certificate is
+  # issued by the same HTTP-01 flow as every other name: without this record,
+  # novashop-grafana-tls never issues and the dashboard serves a browser warning
+  # instead of a login.
+  "grafana.novashop" = {
+    comment       = "Grafana, basic auth at the edge"
     acme_required = true
   }
 }
