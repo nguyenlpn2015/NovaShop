@@ -78,3 +78,32 @@ spec:
   dnsNames:
     - novashop.smartdev.vn
     - api.novashop.smartdev.vn
+---
+# Grafana is published from the observability namespace, so its certificate has
+# to live there too: a TLS Secret is only readable by the Ingress in its own
+# namespace. This is a separate Certificate rather than another dnsName on the
+# production one for that reason.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: novashop-grafana-tls
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: novashop
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  secretName: novashop-grafana-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - grafana.novashop.smartdev.vn

@@ -1,9 +1,15 @@
 # Grafana for the NovaShop platform.
 #
-# Access is by port-forward for now. Publishing Grafana would require a DNS
-# record, a certificate, and an authentication decision, none of which belong in
-# a change whose purpose is to start collecting metrics. See
-# docs/observability/architecture.md for the follow-up.
+# Published at https://grafana.novashop.smartdev.vn behind two independent
+# authentication layers: Traefik basic auth at the edge, and Grafana's own admin
+# login behind it. Anonymous access and sign-up are off, so neither layer alone
+# grants entry.
+#
+# This is a demo platform. Basic auth is a deliberate floor, not a
+# recommendation: it sends a reusable credential on every request and has no
+# lockout, no MFA, and no per-user audit trail. A platform holding real customer
+# data wants OIDC here instead, at which point the edge middleware below is
+# replaced rather than extended.
 
 replicas: 1
 
@@ -52,12 +58,32 @@ initChownData:
 service:
   type: ClusterIP
 
+# Only the websecure entrypoint is served here. Port 80 is left to cert-manager,
+# which creates its own temporary Ingress for the HTTP-01 challenge; a redirect
+# for humans is defined in extraObjects below.
 ingress:
-  enabled: false
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: observability-grafana-secure-chain@kubernetescrd
+  hosts:
+    - grafana.novashop.smartdev.vn
+  path: /
+  pathType: Prefix
+  tls:
+    - hosts:
+        - grafana.novashop.smartdev.vn
+      secretName: novashop-grafana-tls
 
 grafana.ini:
   server:
-    root_url: http://localhost:3000/
+    # Must be the published URL, not localhost. Grafana builds absolute links
+    # from this: share URLs, and the "view in Grafana" link in every alert
+    # notification. Left at localhost those links point at whatever the reader
+    # happens to be running on port 3000.
+    root_url: https://grafana.novashop.smartdev.vn/
   analytics:
     reporting_enabled: false
     check_for_updates: false
@@ -111,3 +137,110 @@ sidecar:
 
 testFramework:
   enabled: false
+
+# The edge in front of Grafana. These live here rather than in a separate
+# Application so that the routing and the workload it routes to are described by
+# one file and move in one commit.
+extraObjects:
+  # Basic auth. The Secret is NOT in Git: it holds an htpasswd line, and a bcrypt
+  # hash in a public repository is an offline cracking target, not a secret. It
+  # is created out of band exactly like novashop-grafana-admin -- see
+  # docs/operations/observability-guide.md.
+  #
+  # Traefik expects key `users` containing htpasswd lines. If the Secret is
+  # missing, Traefik fails the router closed and returns 500 rather than serving
+  # Grafana unauthenticated, which is the failure mode we want.
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: grafana-basic-auth
+      namespace: observability
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: edge
+        app.kubernetes.io/part-of: novashop
+    spec:
+      basicAuth:
+        secret: novashop-grafana-basic-auth
+        realm: NovaShop Observability
+
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: grafana-security-headers
+      namespace: observability
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: edge
+        app.kubernetes.io/part-of: novashop
+    spec:
+      headers:
+        contentTypeNosniff: true
+        referrerPolicy: strict-origin-when-cross-origin
+        # frameDeny is deliberately omitted. Grafana embeds its own panels in
+        # iframes, and DENY breaks panel rendering in the UI.
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        customResponseHeaders:
+          Permissions-Policy: "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: grafana-secure-chain
+      namespace: observability
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: edge
+        app.kubernetes.io/part-of: novashop
+    spec:
+      chain:
+        # Basic auth first: an unauthenticated request should be rejected before
+        # any work is done on its behalf.
+        middlewares:
+          - name: grafana-basic-auth
+          - name: grafana-security-headers
+
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: grafana-https-redirect
+      namespace: observability
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: edge
+        app.kubernetes.io/part-of: novashop
+    spec:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  # Port 80 exists only to send humans to HTTPS. It carries no basic auth and no
+  # backend of consequence: the redirect middleware answers before the service is
+  # reached. cert-manager's HTTP-01 challenge is served by its own Ingress, which
+  # Traefik matches on the more specific /.well-known path.
+  - apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: novashop-grafana-http-redirect
+      namespace: observability
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/component: ingress
+        app.kubernetes.io/part-of: novashop
+      annotations:
+        traefik.ingress.kubernetes.io/router.entrypoints: web
+        traefik.ingress.kubernetes.io/router.middlewares: observability-grafana-https-redirect@kubernetescrd
+    spec:
+      ingressClassName: traefik
+      rules:
+        - host: grafana.novashop.smartdev.vn
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: novashop-grafana
+                    port:
+                      number: 80

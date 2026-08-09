@@ -15,12 +15,13 @@ flowchart TB
         R2["api.novashop<br/><i>production backend</i>"]
         R3["staging.novashop<br/><i>staging</i>"]
         R4["dev.novashop<br/><i>development</i>"]
+        R5["grafana.novashop<br/><i>basic auth at the edge</i>"]
     end
 
     CF --- records
     PUB --> FG["FortiGate<br/>DNAT → 10.10.1.45"]
     FG --> TR["Traefik<br/><i>separates by Host header</i>"]
-    TR --> R1 & R2 & R3 & R4
+    TR --> R1 & R2 & R3 & R4 & R5
 
     subgraph internal["In-cluster resolution"]
         POD["Pod"] -->|"*.svc.cluster.local"| CD["CoreDNS"]
@@ -35,7 +36,7 @@ flowchart TB
 
 ## The records
 
-All four names resolve to the same public address. Separation happens at Traefik by
+All five names resolve to the same public address. Separation happens at Traefik by
 `Host` header, not in DNS.
 
 | Name | Environment | Type |
@@ -44,6 +45,7 @@ All four names resolve to the same public address. Separation happens at Traefik
 | `api.novashop.smartdev.vn` | production backend | A |
 | `staging.novashop.smartdev.vn` | staging | A |
 | `dev.novashop.smartdev.vn` | development | A |
+| `grafana.novashop.smartdev.vn` | Grafana, basic auth at the edge | A |
 
 ## Records are DNS-only, not proxied
 
