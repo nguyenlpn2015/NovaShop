@@ -19,8 +19,18 @@ RUN groupadd --system --gid 10001 novashop \
     && useradd --system --uid 10001 --gid novashop --create-home novashop
 
 COPY --from=builder /wheels /wheels
+# pip is a build tool, and nothing in this image runs it after the wheels are
+# installed: the entrypoint is uvicorn and migrations run through alembic.
+#
+# Removing it is not housekeeping. pip carries its dependencies vendored inside
+# pip/_vendor, and those copies are scanned like any other package: on
+# python:3.14.7-slim-bookworm they are msgpack 1.1.2 (GHSA-6v7p-g79w-8964) and
+# setuptools 70.3.0 (CVE-2025-47273), both HIGH and both unfixable from here
+# because neither is a dependency we declare or can upgrade. Uninstalling pip is
+# what actually removes the code, rather than suppressing the finding.
 RUN pip install --no-cache-dir /wheels/* \
-    && rm -rf /wheels
+    && rm -rf /wheels \
+    && python -m pip uninstall --yes pip
 
 WORKDIR /app
 
